@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useEffect, useState } from "react";
+import Image from "next/image";
 import { Button } from "@/components/ui/button";
 import { PlusCircle, Trash2 } from "lucide-react";
 import { useDispatch } from "react-redux";
@@ -8,15 +9,46 @@ import { getCourseById, updateCourse } from "@/redux/slices/admin/courseSlice";
 import { Input } from "@/components/ui/input";
 import { EditableField } from "@/components/common/EditableField";
 import { useRouter, useParams } from "next/navigation";
+import type { AppDispatch } from "@/redux/store";
+
+/* =======================
+   Types
+======================= */
+
+interface Module {
+  title: string;
+  zoomLink: string;
+  downloadLink: string;
+}
+
+interface CourseForm {
+  title: string;
+  description: string;
+  image: string | File;
+  duration: string;
+  timing: string;
+  language: string;
+  price: string;
+  salePrice: string;
+  banner: string;
+  seat: string;
+  whatsAppLink: string;
+  telegramLink: string;
+  modules: Module[];
+}
+
+/* =======================
+   Component
+======================= */
 
 const UpdateCoursePage = () => {
-  const dispatch = useDispatch();
+  const dispatch = useDispatch<AppDispatch>();
   const router = useRouter();
-  const { id } = useParams();
+  const { id } = useParams<{ id: string }>();
 
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState<boolean>(true);
 
-  const [form, setForm] = useState({
+  const [form, setForm] = useState<CourseForm>({
     title: "",
     description: "",
     image: "",
@@ -32,32 +64,35 @@ const UpdateCoursePage = () => {
     modules: [{ title: "", zoomLink: "", downloadLink: "" }],
   });
 
-  /* ---------------- FETCH COURSE ---------------- */
+  /* =======================
+     FETCH COURSE
+  ======================= */
+
   useEffect(() => {
-    const fetchCourse = async () => {
+    const fetchCourse = async (): Promise<void> => {
       try {
         const res = await dispatch(getCourseById(id)).unwrap();
 
         setForm({
-          title: res.title || "",
-          description: res.description || "",
-          image: res.image || "",
-          duration: res.duration || "",
-          timing: res.timing || "",
-          language: res.language || "",
-          price: res.price || "",
-          salePrice: res.salePrice || "",
-          banner: res.banner || "",
-          seat: res.seat || "",
-          whatsAppLink: res.whatsAppLink || "",
-          telegramLink: res.telegramLink || "",
+          title: res.title ?? "",
+          description: res.description ?? "",
+          image: res.image ?? "",
+          duration: res.duration ?? "",
+          timing: res.timing ?? "",
+          language: res.language ?? "",
+          price: res.price ?? "",
+          salePrice: res.salePrice ?? "",
+          banner: res.banner ?? "",
+          seat: res.seat ?? "",
+          whatsAppLink: res.whatsAppLink ?? "",
+          telegramLink: res.telegramLink ?? "",
           modules:
-            res.modules?.length > 0
+            Array.isArray(res.modules) && res.modules.length > 0
               ? res.modules
               : [{ title: "", zoomLink: "", downloadLink: "" }],
         });
-      } catch (err) {
-        console.error(err);
+      } catch (error: unknown) {
+        console.error(error);
       } finally {
         setLoading(false);
       }
@@ -66,14 +101,19 @@ const UpdateCoursePage = () => {
     if (id) fetchCourse();
   }, [id, dispatch]);
 
-  /* ---------------- HANDLERS ---------------- */
-  const handleFieldChange = (field: string, value: string) => {
+  /* =======================
+     HANDLERS
+  ======================= */
+
+  const handleFieldChange = (field: keyof CourseForm, value: string) => {
     setForm((prev) => ({ ...prev, [field]: value }));
-    console.log(form);
-    
   };
 
-  const handleModuleChange = (index: number, field: string, value: string) => {
+  const handleModuleChange = (
+    index: number,
+    field: keyof Module,
+    value: string
+  ) => {
     const updated = [...form.modules];
     updated[index][field] = value;
     setForm((prev) => ({ ...prev, modules: updated }));
@@ -92,8 +132,11 @@ const UpdateCoursePage = () => {
     setForm((prev) => ({ ...prev, modules: updated }));
   };
 
-  /* ---------------- IMAGE ---------------- */
-  const handleImageDrop = (e: any) => {
+  /* =======================
+     IMAGE HANDLERS
+  ======================= */
+
+  const handleImageDrop = (e: React.DragEvent<HTMLDivElement>) => {
     e.preventDefault();
     const file = e.dataTransfer.files[0];
 
@@ -102,8 +145,8 @@ const UpdateCoursePage = () => {
     }
   };
 
-  const handleImageSelect = (e: any) => {
-    const file = e.target.files[0];
+  const handleImageSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
     if (file && file.type.startsWith("image/")) {
       setForm((prev) => ({ ...prev, image: file }));
     }
@@ -111,51 +154,47 @@ const UpdateCoursePage = () => {
 
   const removeImage = () => {
     setForm((prev) => ({ ...prev, image: "" }));
-    const input = document.getElementById("imageInput") as HTMLInputElement;
+    const input = document.getElementById("imageInput") as HTMLInputElement | null;
     if (input) input.value = "";
   };
 
-  /* ---------------- SUBMIT ---------------- */
-const handleSubmit = async () => {
-  try {
-    const formData = new FormData();
+  /* =======================
+     SUBMIT
+  ======================= */
 
-    formData.append("title", form.title);
-    formData.append("description", form.description);
-    formData.append("duration", form.duration);
-    formData.append("timing", form.timing);
-    formData.append("language", form.language);
-    formData.append("price", form.price);
-    formData.append("salePrice", form.salePrice);
-    formData.append("whatsAppLink", form.whatsAppLink);
-    formData.append("telegramLink", form.telegramLink);
-    formData.append("seat", form.seat);
+  const handleSubmit = async (): Promise<void> => {
+    try {
+      const formData = new FormData();
 
-    // FILE
-    if (form.image instanceof File) {
-      formData.append("image", form.image);
+      formData.append("title", form.title);
+      formData.append("description", form.description);
+      formData.append("duration", form.duration);
+      formData.append("timing", form.timing);
+      formData.append("language", form.language);
+      formData.append("price", form.price);
+      formData.append("salePrice", form.salePrice);
+      formData.append("whatsAppLink", form.whatsAppLink);
+      formData.append("telegramLink", form.telegramLink);
+      formData.append("seat", form.seat);
+      formData.append("modules", JSON.stringify(form.modules));
+
+      if (form.image instanceof File) {
+        formData.append("image", form.image);
+      }
+
+      await dispatch(updateCourse({ id, data: formData })).unwrap();
+      router.push("/admin/course");
+    } catch (error: unknown) {
+      console.error(error);
     }
-
-    // MODULES
-    formData.append("modules", JSON.stringify(form.modules));
-
-    // ✅ REAL DEBUG
-    console.log("=== FORMDATA ===");
-    for (const [k, v] of formData.entries()) {
-      console.log(k, v);
-    }
-
-    await dispatch(updateCourse({ id, data: formData })).unwrap();
-    router.push("/admin/course");
-  } catch (err) {
-    console.error(err);
-  }
-};
-
+  };
 
   if (loading) return <p className="p-10">Loading...</p>;
 
-  /* ---------------- UI ---------------- */
+  /* =======================
+     UI
+  ======================= */
+
   return (
     <div className="w-full p-8 bg-white rounded-2xl shadow-lg space-y-8">
       {/* Header */}
@@ -208,31 +247,6 @@ const handleSubmit = async () => {
               className="text-2xl line-through"
             />
           </div>
-          <div className="flex justify-between items-center gap-5">
-                    <div className="">
-                      <EditableField
-                        value={form.whatsAppLink}
-                        onChange={(val) => handleFieldChange("whatsAppLink", val)}
-                        placeholder="WhatsApp Link"
-                        className="w-fit text-xl font-medium"
-                        
-                      />
-                      <EditableField
-                        value={form.telegramLink}
-                        onChange={(val) => handleFieldChange("telegramLink", val)}
-                        placeholder="Telegram Link"
-                        className="w-fit text-xl font-medium"
-                        
-                      />
-                    </div>
-                    <EditableField
-                        value={form.seat}
-                        onChange={(val) => handleFieldChange("seat", val)}
-                        placeholder="Seat"
-                        className="w-fit text-xl font-medium"
-                        
-                      />
-                  </div>
         </div>
 
         {/* Image Upload */}
@@ -244,15 +258,20 @@ const handleSubmit = async () => {
         >
           {form.image ? (
             <div className="relative inline-block">
-              <img
+              <Image
                 src={
                   typeof form.image === "string"
                     ? form.image
                     : URL.createObjectURL(form.image)
                 }
+                alt="Course image preview"
+                width={300}
+                height={160}
                 className="h-40 object-contain rounded"
               />
+
               <button
+                type="button"
                 onClick={(e) => {
                   e.stopPropagation();
                   removeImage();

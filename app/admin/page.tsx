@@ -7,42 +7,53 @@ import { getCourses } from "@/redux/slices/admin/courseSlice";
 import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import { useDispatch, useSelector } from "react-redux";
+import type { AppDispatch, RootState } from "@/redux/store";
 
+/* =======================
+   Types
+======================= */
 
 interface Banner {
   _id: string;
   banner: string;
 }
 
+/* =======================
+   Component
+======================= */
+
 export default function AdminHome() {
   const router = useRouter();
-  const dispatch = useDispatch();
-  const { courses} = useSelector((state: any) => state.course);
-  const { blogs } = useSelector((state: any) => state.blog);
+  const dispatch = useDispatch<AppDispatch>();
+
+  const courses = useSelector((state: RootState) => state.course.courses);
+  const blogs = useSelector((state: RootState) => state.blog.blogs);
 
   const [banner, setBanner] = useState<Banner[]>([]);
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState<boolean>(true);
   const [newBanner, setNewBanner] = useState<File | null>(null);
 
-    /* =======================
-       Fetch Blogs
-    ======================= */
-  
-    const fetchBanner = async () => {
-      try {
-        const res = await fetch("/api/admin/banner");
-        const data = await res.json();
-        setBanner(data.banners);
-      } catch (error) {
-        console.error("Failed to fetch blogs", error);
-      } finally {
-        setLoading(false);
-      }
-    };
+  /* =======================
+     Fetch Banners
+  ======================= */
 
-    console.log(banner);
-    
-  const handleImageDrop = (e) => {
+  const fetchBanner = async (): Promise<void> => {
+    try {
+      const res = await fetch("/api/admin/banner");
+      const data: { banners: Banner[] } = await res.json();
+      setBanner(data.banners);
+    } catch (error: unknown) {
+      console.error("Failed to fetch banners", error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  /* =======================
+     Handlers
+  ======================= */
+
+  const handleImageDrop = (e: React.DragEvent<HTMLDivElement>): void => {
     e.preventDefault();
     const file = e.dataTransfer.files[0];
 
@@ -51,48 +62,55 @@ export default function AdminHome() {
     }
   };
 
-  const handleImageSelect = async (e) => {
-    const file = e.target.files[0];
+  const handleImageSelect = async (
+    e: React.ChangeEvent<HTMLInputElement>
+  ): Promise<void> => {
+    const file = e.target.files?.[0];
 
-    if (file && file.type.startsWith("image/")) {
-      setNewBanner(file);
-      const formData = new FormData();
-      formData.append("banner", file);
-      const res = await fetch("/api/admin/banner", {
-        method: "POST",
-        body: formData,
-      });
+    if (!file || !file.type.startsWith("image/")) return;
 
-      const data = await res.json();
-      console.log(data);
-      if (data.success) {
-        alert("Banner uploaded successfully");
-        fetchBanner();
-      } else {
-        alert("Banner upload failed");
-      }
-      
+    setNewBanner(file);
+
+    const formData = new FormData();
+    formData.append("banner", file);
+
+    const res = await fetch("/api/admin/banner", {
+      method: "POST",
+      body: formData,
+    });
+
+    const data: { success: boolean } = await res.json();
+
+    if (data.success) {
+      alert("Banner uploaded successfully");
+      fetchBanner();
+    } else {
+      alert("Banner upload failed");
     }
   };
 
-  const removeImage = async(id) =>{
-    const res = await fetch(`/api/admin/banner/${id}`, {
-        method: "DELETE",
-    });
+  const removeImage = async (id: string): Promise<void> => {
+    await fetch(`/api/admin/banner/${id}`, { method: "DELETE" });
     fetchBanner();
-    
-  }
+  };
 
-
-  
-    useEffect(() => {
-      fetchBanner();
-    }, []);
+  /* =======================
+     Effects
+  ======================= */
 
   useEffect(() => {
-      dispatch(getCourses());
-      dispatch(getBlogs());
-    }, [dispatch]); 
+    fetchBanner();
+  }, []);
+
+  useEffect(() => {
+    dispatch(getCourses());
+    dispatch(getBlogs());
+  }, [dispatch]);
+
+  /* =======================
+     UI
+  ======================= */
+
   return (
     <div className="space-y-6 p-3 sm:p-6">
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3">
@@ -104,12 +122,6 @@ export default function AdminHome() {
             Manage your trading courses and track their performance
           </p>
         </div>
-        {/* <Button
-          // onClick={() => router.push("/admin/course/new")}
-          className="bg-black text-white rounded-xl px-4 py-2 w-full sm:w-auto"
-        >
-          + New Course
-        </Button> */}
       </div>
 
       {/* Stats Cards */}
@@ -131,65 +143,59 @@ export default function AdminHome() {
             <CardTitle className="text-sm">Total Blogs</CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-semibold">{courses.length}</div>
+            <div className="text-2xl font-semibold">{blogs.length}</div>
             <p className="text-xs text-muted-foreground">
-              Active Blogs in your academy
+              Active blogs in your academy
             </p>
           </CardContent>
         </Card>
 
         <Card>
           <CardHeader className="pb-2">
-            <CardTitle className="text-sm">Total Revenu</CardTitle>
+            <CardTitle className="text-sm">Total Revenue</CardTitle>
           </CardHeader>
           <CardContent>
-            {/* <div className="text-2xl font-semibold">
-              {[...new Set(courses.map((c: any) => c.language))].length || 0}
-            </div> */}
             <p className="text-xs text-muted-foreground">
-              Unique languages across all courses
+              Revenue analytics coming soon
             </p>
           </CardContent>
         </Card>
       </div>
-              {/* Banner  */}
-      <div className="flex gap-5">
-        {banner.map((b) => (
-           <div key={b._id} className="relative inline-block">
-              <img
-                src={
-                  typeof b.banner === "string"
-                    ? b.banner
-                    : URL.createObjectURL(b.banner)
-                }
-                alt="Preview"
-                className="mx-auto h-40 object-contain rounded"
-              />
 
-              {/* ❌ Remove Button */}
-              <button
-                type="button"
-                onClick={(e) => {
-                  e.stopPropagation();
-                  removeImage(b._id);
-                }}
-                className="absolute -top-2 -right-2 bg-red-500 text-white rounded-full w-6 h-6 flex items-center justify-center text-sm hover:bg-red-600"
-              >
-                ✕
-              </button>
-            </div>
+      {/* Banners */}
+      <div className="flex gap-5 flex-wrap">
+        {banner.map((b) => (
+          <div key={b._id} className="relative inline-block">
+            <img
+              src={b.banner}
+              alt="Banner"
+              className="mx-auto h-40 object-contain rounded"
+            />
+
+            <button
+              type="button"
+              onClick={() => removeImage(b._id)}
+              className="absolute -top-2 -right-2 bg-red-500 text-white rounded-full w-6 h-6 flex items-center justify-center text-sm hover:bg-red-600"
+            >
+              ✕
+            </button>
+          </div>
         ))}
+
         <div
           className="border-2 mt-5 sm:mt-0 border-dashed border-gray-300 rounded-lg p-6 text-center cursor-pointer hover:border-[#0096FF] transition"
           onDragOver={(e) => e.preventDefault()}
           onDrop={handleImageDrop}
-          onClick={() => document.getElementById("imageInput").click()}
-        > 
-        <p className="text-gray-500 p-10">
-          Drag & drop Banner here or{" "}
-          <span className="text-[#0096FF]">click to upload</span>
-        </p>
-         <input
+          onClick={() =>
+            document.getElementById("imageInput")?.click()
+          }
+        >
+          <p className="text-gray-500 p-10">
+            Drag & drop Banner here or{" "}
+            <span className="text-[#0096FF]">click to upload</span>
+          </p>
+
+          <input
             type="file"
             id="imageInput"
             accept="image/*"

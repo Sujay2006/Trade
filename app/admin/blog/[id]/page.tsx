@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import Image from "next/image";
 import { Button } from "@/components/ui/button";
 import { EditableField } from "@/components/common/EditableField";
 import { ChevronDown, ChevronUp } from "lucide-react";
@@ -17,6 +18,11 @@ interface BlogBlock {
   value: string | File | null;
 }
 
+interface CleanContentBlock {
+  type: BlogBlockType;
+  value?: string;
+}
+
 interface BlockRendererProps {
   block: BlogBlock;
   index: number;
@@ -26,78 +32,83 @@ interface BlockRendererProps {
   moveBlock: (i: number, dir: "up" | "down") => void;
 }
 
+interface ImageDropZoneProps {
+  block: BlogBlock;
+  index: number;
+  content: BlogBlock[];
+  setContent: React.Dispatch<React.SetStateAction<BlogBlock[]>>;
+}
+
 /* =======================
    Update Blog Page
 ======================= */
 
 export default function UpdateBlog() {
-  const { id } = useParams();
+  const { id } = useParams<{ id: string }>();
   const router = useRouter();
 
-  const [title, setTitle] = useState("");
+  const [title, setTitle] = useState<string>("");
   const [content, setContent] = useState<BlogBlock[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [saving, setSaving] = useState(false);
+  const [loading, setLoading] = useState<boolean>(true);
+  const [saving, setSaving] = useState<boolean>(false);
 
   /* =======================
      Fetch Blog
   ======================= */
 
-useEffect(() => {
-  const fetchBlog = async () => {
-    try {
-      const res = await fetch(`/api/admin/blog/${id}`);
-      const data = await res.json();
+  useEffect(() => {
+    const fetchBlog = async (): Promise<void> => {
+      try {
+        const res = await fetch(`/api/admin/blog/${id}`);
+        const data = await res.json();
+        const blog = data.blog ?? data;
 
-      // 🔥 handle both API styles
-      const blog = data.blog ?? data;
+        if (!blog?.title) throw new Error("Invalid blog data");
 
-      if (!blog || !blog.title) {
-        throw new Error("Invalid blog data");
+        setTitle(blog.title);
+
+        setContent(
+          (blog.content || []).map((block: CleanContentBlock) => ({
+            type: block.type,
+            value: block.type === "image" ? block.value ?? null : block.value ?? "",
+          }))
+        );
+      } catch (error: unknown) {
+        console.error("Load blog failed:", error);
+        alert("Failed to load blog");
+      } finally {
+        setLoading(false);
       }
+    };
 
-      setTitle(blog.title);
-
-      setContent(
-        (blog.content || []).map((block) => ({
-          type: block.type,
-          value: block.type === "image" ? block.value ?? null : block.value ?? "",
-        }))
-      );
-    } catch (err) {
-      console.error("Load blog failed:", err);
-      alert("Failed to load blog");
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  if (id) fetchBlog();
-}, [id]);
-
+    if (id) fetchBlog();
+  }, [id]);
 
   /* =======================
      Helpers
   ======================= */
 
-  const moveBlock = (index, direction) => {
+  const moveBlock = (index: number, direction: "up" | "down") => {
     const updated = [...content];
+
     if (direction === "up" && index > 0) {
       [updated[index], updated[index - 1]] = [
         updated[index - 1],
         updated[index],
       ];
     }
+
     if (direction === "down" && index < updated.length - 1) {
       [updated[index], updated[index + 1]] = [
         updated[index + 1],
         updated[index],
       ];
     }
+
     setContent(updated);
   };
 
-  const removeBlock = (index) => {
+  const removeBlock = (index: number) => {
     setContent((prev) => prev.filter((_, i) => i !== index));
   };
 
@@ -113,7 +124,7 @@ useEffect(() => {
      Update Blog
   ======================= */
 
-  const updateBlog = async () => {
+  const updateBlog = async (): Promise<void> => {
     if (!title.trim()) {
       alert("Title missing");
       return;
@@ -124,14 +135,17 @@ useEffect(() => {
     const formData = new FormData();
     formData.append("title", title);
 
-    const cleanContent: any[] = [];
+    const cleanContent: CleanContentBlock[] = [];
 
     content.forEach((block) => {
       if (block.type === "image" && block.value instanceof File) {
         formData.append("images", block.value);
         cleanContent.push({ type: "image" });
       } else {
-        cleanContent.push(block);
+        cleanContent.push({
+          type: block.type,
+          value: String(block.value ?? ""),
+        });
       }
     });
 
@@ -142,7 +156,7 @@ useEffect(() => {
       body: formData,
     });
 
-    const data = await res.json();
+    const data: { success: boolean; message?: string } = await res.json();
     setSaving(false);
 
     if (data.success) {
@@ -161,7 +175,6 @@ useEffect(() => {
 
   return (
     <div className="max-w-5xl p-6 space-y-6 bg-white rounded-xl shadow">
-      {/* Title */}
       <EditableField
         value={title}
         onChange={setTitle}
@@ -169,7 +182,6 @@ useEffect(() => {
         size="lg"
       />
 
-      {/* Blocks */}
       {content.map((block, index) => (
         <BlockRenderer
           key={index}
@@ -182,13 +194,11 @@ useEffect(() => {
         />
       ))}
 
-      {/* Controls */}
       <div className="flex gap-4">
         <Button onClick={addTextBlock}>+ Add Text</Button>
         <Button onClick={addImageBlock}>+ Add Image</Button>
       </div>
 
-      {/* Save */}
       <Button className="w-full mt-6" onClick={updateBlog} disabled={saving}>
         {saving ? "Updating..." : "Update Blog"}
       </Button>
@@ -209,23 +219,19 @@ function BlockRenderer({
   moveBlock,
 }: BlockRendererProps) {
   return (
-    <div className="relative flex group">
-      <div className="flex flex-col justify-between gap-1">
+    <div className="relative flex group gap-3">
+      <div className="flex flex-col justify-between">
         <Button size="icon" variant="ghost" onClick={() => moveBlock(index, "up")}>
           <ChevronUp size={14} />
         </Button>
-        <Button
-          size="icon"
-          variant="ghost"
-          onClick={() => moveBlock(index, "down")}
-        >
+        <Button size="icon" variant="ghost" onClick={() => moveBlock(index, "down")}>
           <ChevronDown size={14} />
         </Button>
       </div>
 
       <button
         onClick={() => removeBlock(index)}
-        className="absolute -top-2 -right-2 bg-red-500 text-white rounded-full w-6 h-6 text-xs hidden group-hover:flex items-center justify-center"
+        className="absolute -top-2 -right-2 bg-red-500 text-white rounded-full w-6 h-6 text-xs hidden group-hover:flex"
       >
         ✕
       </button>
@@ -240,7 +246,7 @@ function BlockRenderer({
             updated[index].value = val;
             setContent(updated);
           }}
-          className="w-full flex items-center"
+          className="w-full"
         />
       ) : (
         <ImageDropZone
@@ -258,8 +264,13 @@ function BlockRenderer({
    Image Drop Zone
 ======================= */
 
-function ImageDropZone({ block, index, content, setContent }) {
-  const handleImage = (file) => {
+function ImageDropZone({
+  block,
+  index,
+  content,
+  setContent,
+}: ImageDropZoneProps) {
+  const handleImage = (file: File | null) => {
     if (!file) return;
     const updated = [...content];
     updated[index].value = file;
@@ -272,25 +283,30 @@ function ImageDropZone({ block, index, content, setContent }) {
     setContent(updated);
   };
 
+  const imageSrc =
+    block.value instanceof File
+      ? URL.createObjectURL(block.value)
+      : typeof block.value === "string"
+      ? block.value
+      : null;
+
   return (
     <div
       className="relative border-2 border-dashed border-gray-300 rounded-lg p-6 text-center cursor-pointer hover:border-[#0096FF]"
       onDragOver={(e) => e.preventDefault()}
       onDrop={(e) => {
         e.preventDefault();
-        handleImage(e.dataTransfer.files?.[0]);
+        handleImage(e.dataTransfer.files?.[0] ?? null);
       }}
       onClick={() => document.getElementById(`image-${index}`)?.click()}
     >
-      {block.value instanceof File ? (
-        <img
-          src={URL.createObjectURL(block.value)}
-          className="mx-auto max-h-[400px] rounded"
-        />
-      ) : typeof block.value === "string" ? (
-        <img
-          src={block.value}
-          className="mx-auto max-h-[400px] rounded"
+      {imageSrc ? (
+        <Image
+          src={imageSrc}
+          alt="Blog image preview"
+          width={600}
+          height={400}
+          className="mx-auto max-h-[400px] object-contain rounded"
         />
       ) : (
         <p className="text-gray-500">
@@ -299,7 +315,7 @@ function ImageDropZone({ block, index, content, setContent }) {
         </p>
       )}
 
-      {block.value && (
+      {imageSrc && (
         <button
           onClick={(e) => {
             e.stopPropagation();
@@ -316,7 +332,7 @@ function ImageDropZone({ block, index, content, setContent }) {
         type="file"
         accept="image/*"
         hidden
-        onChange={(e) => handleImage(e.target.files?.[0])}
+        onChange={(e) => handleImage(e.target.files?.[0] ?? null)}
       />
     </div>
   );

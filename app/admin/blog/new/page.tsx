@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import Image from "next/image";
 import { Button } from "@/components/ui/button";
 import { EditableField } from "@/components/common/EditableField";
 import { ChevronDown, ChevronUp } from "lucide-react";
@@ -17,11 +18,18 @@ interface BlogBlock {
   value: string | File | null;
 }
 
+interface CleanContentBlock {
+  type: BlogBlockType;
+  value?: string;
+}
+
 interface BlockRendererProps {
   block: BlogBlock;
   index: number;
   content: BlogBlock[];
   setContent: React.Dispatch<React.SetStateAction<BlogBlock[]>>;
+  removeBlock: (i: number) => void;
+  moveBlock: (index: number, direction: "up" | "down") => void;
 }
 
 /* =======================
@@ -31,20 +39,24 @@ interface BlockRendererProps {
 export default function AddBlog() {
   const [title, setTitle] = useState<string>("");
   const [content, setContent] = useState<BlogBlock[]>([]);
-  const [saving, setSaving] = useState(false);
+  const [saving, setSaving] = useState<boolean>(false);
   const router = useRouter();
 
   const moveBlock = (index: number, direction: "up" | "down") => {
     const updated = [...content];
     if (direction === "up" && index > 0) {
-      [updated[index], updated[index - 1]] = [updated[index - 1], updated[index]];
+      [updated[index], updated[index - 1]] = [
+        updated[index - 1],
+        updated[index],
+      ];
     } else if (direction === "down" && index < updated.length - 1) {
-      [updated[index], updated[index + 1]] = [updated[index + 1], updated[index]];
+      [updated[index], updated[index + 1]] = [
+        updated[index + 1],
+        updated[index],
+      ];
     }
     setContent(updated);
   };
-
-  
 
   const addTextBlock = () => {
     setContent((prev) => [...prev, { type: "text", value: "" }]);
@@ -62,43 +74,49 @@ export default function AddBlog() {
      Save Blog
   ======================= */
 
-const saveBlog = async () => {
-  if (!title.trim()) {
-    alert("Title missing");
-    return;
-  }
-
-  const formData = new FormData();
-  formData.append("title", title);
-
-  const cleanContent: any[] = [];
-
-  content.forEach((block) => {
-    if (block.type === "image" && block.value instanceof File) {
-      // Send the actual file to Multer
-      formData.append("images", block.value);
-      // Send a placeholder in the JSON so the server knows where the image goes
-      cleanContent.push({ type: "image" });
-    } else {
-      cleanContent.push(block);
+  const saveBlog = async (): Promise<void> => {
+    if (!title.trim()) {
+      alert("Title missing");
+      return;
     }
-  });
 
-  formData.append("content", JSON.stringify(cleanContent));
+    setSaving(true);
 
-  const res = await fetch("/api/admin/blog/create", {
-    method: "POST",
-    body: formData, // No headers needed, browser sets multipart/form-data
-  });
+    const formData = new FormData();
+    formData.append("title", title);
 
-  const data = await res.json();
-  if (data.success) {
-    alert("Blog saved successfully!");
-    router.push("/admin/blog");
-  } else {
-    alert("Error: " + data.message);
-  }
-};
+    const cleanContent: CleanContentBlock[] = [];
+
+    content.forEach((block) => {
+      if (block.type === "image" && block.value instanceof File) {
+        formData.append("images", block.value);
+        cleanContent.push({ type: "image" });
+      } else {
+        cleanContent.push({
+          type: block.type,
+          value: String(block.value ?? ""),
+        });
+      }
+    });
+
+    formData.append("content", JSON.stringify(cleanContent));
+
+    const res = await fetch("/api/admin/blog/create", {
+      method: "POST",
+      body: formData,
+    });
+
+    const data: { success: boolean; message?: string } = await res.json();
+
+    setSaving(false);
+
+    if (data.success) {
+      alert("Blog saved successfully!");
+      router.push("/admin/blog");
+    } else {
+      alert("Error: " + data.message);
+    }
+  };
 
   return (
     <div className="max-w-5xl p-6 space-y-6 bg-white rounded-xl shadow">
@@ -156,14 +174,29 @@ function BlockRenderer({
   setContent,
   removeBlock,
   moveBlock,
-}: BlockRendererProps & { removeBlock: (i: number) => void }) {
+}: BlockRendererProps) {
   return (
-    <div className="relative flex  group">
-      <div className="  flex flex-col justify-between gap-1">
-              <Button size="icon" variant="ghost" className="h-8 w-8" onClick={() => moveBlock(index, "up")}><ChevronUp size={14}/></Button>
-              <Button size="icon" variant="ghost" className="h-8 w-8" onClick={() => moveBlock(index, "down")}><ChevronDown size={14}/></Button>
+    <div className="relative flex group gap-3">
+      <div className="flex flex-col justify-between">
+        <Button
+          size="icon"
+          variant="ghost"
+          className="h-8 w-8"
+          onClick={() => moveBlock(index, "up")}
+        >
+          <ChevronUp size={14} />
+        </Button>
+        <Button
+          size="icon"
+          variant="ghost"
+          className="h-8 w-8"
+          onClick={() => moveBlock(index, "down")}
+        >
+          <ChevronDown size={14} />
+        </Button>
       </div>
-      {/* Delete icon */}
+
+      {/* Delete */}
       <button
         onClick={() => removeBlock(index)}
         className="absolute -top-2 -right-2 bg-red-500 text-white rounded-full w-6 h-6 text-xs hidden group-hover:flex items-center justify-center"
@@ -230,10 +263,12 @@ function ImageDropZone({
       }
     >
       {block.value instanceof File ? (
-        <img
+        <Image
           src={URL.createObjectURL(block.value)}
-          alt="Preview"
-          className="mx-auto max-h-[400px] rounded"
+          alt="Blog image preview"
+          width={600}
+          height={400}
+          className="mx-auto max-h-[400px] object-contain rounded"
         />
       ) : (
         <p className="text-gray-500">

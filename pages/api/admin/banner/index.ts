@@ -4,19 +4,35 @@ import { upload } from "@/lib/multer";
 import { connectDb } from "@/lib/connectDb";
 import Banner from "@/models/Banner";
 
+/* =========================
+   Types
+========================= */
+
 interface ExtendedRequest extends NextApiRequest {
-  files: {
+  files?: {
     banner?: Express.Multer.File[];
   };
 }
 
+/* =========================
+   Router
+========================= */
+
 const router = createRouter<ExtendedRequest, NextApiResponse>();
+
+/* =========================
+   Multer Middleware
+========================= */
 
 router.use(
   upload.fields([
     { name: "banner", maxCount: 1 },
   ])
 );
+
+/* =========================
+   POST → Create Banner
+========================= */
 
 router.post(async (req, res) => {
   try {
@@ -32,35 +48,49 @@ router.post(async (req, res) => {
       success: true,
       banner: newBanner,
     });
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error("BANNER CREATE ERROR:", error);
+
+    const message =
+      error instanceof Error ? error.message : "Failed to create banner";
+
     return res.status(500).json({
       success: false,
-      message: error.message,
+      message,
     });
   }
 });
 
+/* =========================
+   GET → All Banners
+========================= */
 
-router.get(async (req, res) => {
+router.get(async (_req, res) => {
   try {
     await connectDb();
+
     const banners = await Banner.find().sort({ createdAt: -1 });
+
     return res.status(200).json({
-        success: true,
-        banners,
+      success: true,
+      banners,
     });
-  } catch (error: any) {
-    return res.status(500).json({ message: error.message });
+  } catch (error: unknown) {
+    const message =
+      error instanceof Error ? error.message : "Failed to fetch banners";
+
+    return res.status(500).json({ message });
   }
 });
 
-
+/* =========================
+   Export
+========================= */
 
 export default router.handler();
 
 export const config = {
   api: {
-    bodyParser: false,
+    bodyParser: false, // Required for Multer
   },
 };

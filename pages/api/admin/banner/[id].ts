@@ -1,17 +1,24 @@
-import { NextApiRequest, NextApiResponse } from "next";
+import type { NextApiRequest, NextApiResponse } from "next";
+import { createRouter } from "next-connect";
+import { upload } from "@/lib/multer";
 import { connectDb } from "@/lib/connectDb";
 import Banner from "@/models/Banner";
-import { upload } from "@/lib/multer";
-import { createRouter } from "next-connect";
 import fs from "fs";
 import path from "path";
 
-// Define interface for the request
+/* =========================
+   Types
+========================= */
+
 interface ExtendedRequest extends NextApiRequest {
-  files: {
+  files?: {
     banner?: Express.Multer.File[];
   };
 }
+
+/* =========================
+   Helpers
+========================= */
 
 function deleteFile(filePath?: string) {
   if (!filePath) return;
@@ -23,7 +30,15 @@ function deleteFile(filePath?: string) {
   }
 }
 
+/* =========================
+   Router
+========================= */
+
 const router = createRouter<ExtendedRequest, NextApiResponse>();
+
+/* =========================
+   Multer Middleware
+========================= */
 
 router.use(
   upload.fields([
@@ -31,6 +46,9 @@ router.use(
   ])
 );
 
+/* =========================
+   DELETE → Remove banner
+========================= */
 
 router.delete(async (req, res) => {
   try {
@@ -38,7 +56,7 @@ router.delete(async (req, res) => {
 
     const { id } = req.query;
     if (!id || Array.isArray(id)) {
-      return res.status(400).json({ message: "Invalid course id" });
+      return res.status(400).json({ message: "Invalid banner id" });
     }
 
     const banner = await Banner.findById(id);
@@ -46,22 +64,29 @@ router.delete(async (req, res) => {
       return res.status(404).json({ message: "Banner not found" });
     }
 
-    // 2️⃣ Delete files from disk
+    // Delete file from disk
     deleteFile(banner.banner);
 
-    // 3️⃣ Delete course from DB
+    // Delete banner from DB
     await Banner.findByIdAndDelete(id);
 
     return res.status(200).json({
       success: true,
-      message: "Course and images deleted successfully",
+      message: "Banner deleted successfully",
     });
-  } catch (err: any) {
-    console.error("COURSE DELETE ERROR:", err);
-    return res.status(500).json({ message: err.message });
+  } catch (err: unknown) {
+    console.error("BANNER DELETE ERROR:", err);
+
+    const message =
+      err instanceof Error ? err.message : "Failed to delete banner";
+
+    return res.status(500).json({ message });
   }
 });
 
+/* =========================
+   Export
+========================= */
 
 export default router.handler();
 

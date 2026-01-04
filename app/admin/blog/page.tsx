@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import Image from "next/image";
 import { Button } from "@/components/ui/button";
 import {
   Card,
@@ -29,10 +30,10 @@ interface Blog {
 }
 
 /* =======================
-   Helper
+   Helpers
 ======================= */
 
-const getFirstImage = (content: BlogContentBlock[]) => {
+const getFirstImage = (content: BlogContentBlock[]): string | null => {
   const img = content.find((b) => b.type === "image");
   return img ? img.value : null;
 };
@@ -44,18 +45,18 @@ const getFirstImage = (content: BlogContentBlock[]) => {
 export default function AdminBlog() {
   const router = useRouter();
   const [blogs, setBlogs] = useState<Blog[]>([]);
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState<boolean>(true);
 
   /* =======================
      Fetch Blogs
   ======================= */
 
-  const fetchBlogs = async () => {
+  const fetchBlogs = async (): Promise<void> => {
     try {
       const res = await fetch("/api/admin/blog/get");
-      const data = await res.json();
+      const data: Blog[] = await res.json();
       setBlogs(data);
-    } catch (error) {
+    } catch (error: unknown) {
       console.error("Failed to fetch blogs", error);
     } finally {
       setLoading(false);
@@ -70,7 +71,7 @@ export default function AdminBlog() {
      Delete Blog
   ======================= */
 
-  const handleDelete = async (id: string) => {
+  const handleDelete = async (id: string): Promise<void> => {
     if (!confirm("Are you sure you want to delete this blog?")) return;
 
     await fetch(`/api/admin/blog/${id}`, {
@@ -132,11 +133,13 @@ export default function AdminBlog() {
                 className="cursor-pointer hover:shadow-lg transition relative overflow-hidden"
                 onClick={() => router.push(`/admin/blog/${blog._id}`)}
               >
-                {/* Image */}
+                {/* Thumbnail */}
                 {thumbnail && (
-                  <img
+                  <Image
                     src={thumbnail}
-                    alt="Blog thumbnail"
+                    alt={`Thumbnail for ${blog.title}`}
+                    width={400}
+                    height={160}
                     className="h-40 w-full object-cover"
                   />
                 )}
@@ -158,7 +161,7 @@ export default function AdminBlog() {
                   </CardTitle>
                 </CardHeader>
 
-                <CardContent className="text-sm flex justify-between text-muted-foreground space-y-1">
+                <CardContent className="text-sm flex justify-between text-muted-foreground">
                   <p>❤️ Likes: {blog.likes}</p>
                   <p>👁 Views: {blog.views}</p>
                 </CardContent>

@@ -7,6 +7,7 @@ import { createCourse } from "@/redux/slices/admin/courseSlice";
 import { Input } from "@/components/ui/input";
 import { EditableField } from "@/components/common/EditableField"; // adjust path
 import { useRouter } from "next/navigation";
+import Image from "next/image";
 
 const NewCoursePage = () => {
   const dispatch = useDispatch();
@@ -224,19 +225,20 @@ formData.append("modules", JSON.stringify(form.modules));
           onDrop={handleImageDrop}
           onClick={() => document.getElementById("imageInput").click()}
         >
-          {form.image ? (
+         {form.image ? (
             <div className="relative inline-block">
-              <img
+              <Image
                 src={
                   typeof form.image === "string"
                     ? form.image
                     : URL.createObjectURL(form.image)
                 }
                 alt="Preview"
+                width={300}
+                height={160}
                 className="mx-auto h-40 object-contain rounded"
               />
 
-              {/* ❌ Remove Button */}
               <button
                 type="button"
                 onClick={(e) => {
@@ -254,6 +256,7 @@ formData.append("modules", JSON.stringify(form.modules));
               <span className="text-[#0096FF]">click to upload</span>
             </p>
           )}
+
 
 
           <input

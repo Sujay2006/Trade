@@ -4,9 +4,13 @@ import { upload } from "@/lib/multer";
 import { connectDb } from "@/lib/connectDb";
 import Course from "@/models/Course";
 
-// Extend request to include files
+/* =========================
+   Types
+========================= */
+
+// Extend request to include Multer files
 interface ExtendedRequest extends NextApiRequest {
-  files: {
+  files?: {
     image?: Express.Multer.File[];
     banner?: Express.Multer.File[];
   };
@@ -14,7 +18,10 @@ interface ExtendedRequest extends NextApiRequest {
 
 const router = createRouter<ExtendedRequest, NextApiResponse>();
 
-// ✅ Multer middleware (ONLY file fields)
+/* =========================
+   Multer Middleware
+========================= */
+
 router.use(
   upload.fields([
     { name: "image", maxCount: 1 },
@@ -25,11 +32,11 @@ router.use(
 /* =========================
    POST → Create Course
 ========================= */
+
 router.post(async (req, res) => {
   try {
     await connectDb();
-    console.log("res.body",req.body);
-    
+
     const {
       title,
       description,
@@ -46,8 +53,8 @@ router.post(async (req, res) => {
     const imageFile = req.files?.image?.[0];
     const bannerFile = req.files?.banner?.[0];
 
-    console.log(imageFile, req.files);
-    
+    const parsedModules =
+      typeof modules === "string" ? JSON.parse(modules) : [];
 
     const newCourse = await Course.create({
       title,
@@ -59,7 +66,7 @@ router.post(async (req, res) => {
       salePrice,
       whatsAppLink,
       telegramLink,
-      modules: JSON.parse(modules || "[]"), // modules comes as string
+      modules: parsedModules,
       image: imageFile ? `/uploads/${imageFile.filename}` : "",
       banner: bannerFile ? `/uploads/${bannerFile.filename}` : "",
     });
@@ -68,11 +75,15 @@ router.post(async (req, res) => {
       success: true,
       course: newCourse,
     });
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error("COURSE CREATE ERROR:", error);
+
+    const message =
+      error instanceof Error ? error.message : "Failed to create course";
+
     return res.status(500).json({
       success: false,
-      message: error.message,
+      message,
     });
   }
 });
@@ -80,15 +91,23 @@ router.post(async (req, res) => {
 /* =========================
    GET → All Courses
 ========================= */
-router.get(async (req, res) => {
+
+router.get(async (_req, res) => {
   try {
     await connectDb();
     const courses = await Course.find().sort({ createdAt: -1 });
     return res.status(200).json(courses);
-  } catch (error: any) {
-    return res.status(500).json({ message: error.message });
+  } catch (error: unknown) {
+    const message =
+      error instanceof Error ? error.message : "Failed to fetch courses";
+
+    return res.status(500).json({ message });
   }
 });
+
+/* =========================
+   Export
+========================= */
 
 export default router.handler();
 

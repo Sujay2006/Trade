@@ -7,6 +7,10 @@ import Course from "@/models/Course";
 import fs from "fs";
 import path from "path";
 
+/* =========================
+   Helpers
+========================= */
+
 function deleteFile(filePath?: string) {
   if (!filePath) return;
 
@@ -17,18 +21,25 @@ function deleteFile(filePath?: string) {
   }
 }
 
+/* =========================
+   Types
+========================= */
 
-// Extend request to support multer files
+// Extend request to support Multer files
 interface ExtendedRequest extends NextApiRequest {
-  files: {
+  files?: {
     image?: Express.Multer.File[];
     banner?: Express.Multer.File[];
   };
 }
 
+/* =========================
+   Router
+========================= */
+
 const router = createRouter<ExtendedRequest, NextApiResponse>();
 
-// ✅ Multer middleware (FILES ONLY)
+// Multer middleware (FILES ONLY)
 router.use(
   upload.fields([
     { name: "image", maxCount: 1 },
@@ -39,6 +50,7 @@ router.use(
 /* =========================
    GET /api/admin/course/:id
 ========================= */
+
 router.get(async (req, res) => {
   try {
     await connectDb();
@@ -54,14 +66,17 @@ router.get(async (req, res) => {
     }
 
     return res.status(200).json(course);
-  } catch (err: any) {
-    return res.status(500).json({ message: err.message });
+  } catch (err: unknown) {
+    const message =
+      err instanceof Error ? err.message : "Failed to fetch course";
+    return res.status(500).json({ message });
   }
 });
 
 /* =========================
    PUT /api/admin/course/:id
 ========================= */
+
 router.put(async (req, res) => {
   try {
     await connectDb();
@@ -84,11 +99,24 @@ router.put(async (req, res) => {
       modules,
     } = req.body;
 
-    // 👇 Files from multer
+    // Files from multer
     const imageFile = req.files?.image?.[0];
     const bannerFile = req.files?.banner?.[0];
 
-    const updateData: any = {
+    const updateData: Partial<{
+      title: string;
+      description: string;
+      duration: string;
+      timing: string;
+      language: string;
+      price: string;
+      salePrice: string;
+      whatsAppLink: string;
+      telegramLink: string;
+      modules: unknown[];
+      image: string;
+      banner: string;
+    }> = {
       title,
       description,
       duration,
@@ -100,12 +128,12 @@ router.put(async (req, res) => {
       telegramLink,
     };
 
-    // Only update modules if provided
-    if (modules) {
+    // Update modules only if provided
+    if (typeof modules === "string") {
       updateData.modules = JSON.parse(modules);
     }
 
-    // 🔥 Only update image if new file uploaded
+    // Update files only if uploaded
     if (imageFile) {
       updateData.image = `/uploads/${imageFile.filename}`;
     }
@@ -122,15 +150,18 @@ router.put(async (req, res) => {
       success: true,
       course: updated,
     });
-  } catch (err: any) {
+  } catch (err: unknown) {
     console.error("COURSE UPDATE ERROR:", err);
-    return res.status(500).json({ message: err.message });
+    const message =
+      err instanceof Error ? err.message : "Failed to update course";
+    return res.status(500).json({ message });
   }
 });
 
 /* =========================
    DELETE /api/admin/course/:id
 ========================= */
+
 router.delete(async (req, res) => {
   try {
     await connectDb();
@@ -140,29 +171,31 @@ router.delete(async (req, res) => {
       return res.status(400).json({ message: "Invalid course id" });
     }
 
-    // 1️⃣ Find course first
     const course = await Course.findById(id);
     if (!course) {
       return res.status(404).json({ message: "Course not found" });
     }
 
-    // 2️⃣ Delete files from disk
     deleteFile(course.image);
     deleteFile(course.banner);
 
-    // 3️⃣ Delete course from DB
     await Course.findByIdAndDelete(id);
 
     return res.status(200).json({
       success: true,
       message: "Course and images deleted successfully",
     });
-  } catch (err: any) {
+  } catch (err: unknown) {
     console.error("COURSE DELETE ERROR:", err);
-    return res.status(500).json({ message: err.message });
+    const message =
+      err instanceof Error ? err.message : "Failed to delete course";
+    return res.status(500).json({ message });
   }
 });
 
+/* =========================
+   Export
+========================= */
 
 export default router.handler();
 

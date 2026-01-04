@@ -1,6 +1,5 @@
 "use client";
 
-import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
   Card,
@@ -19,29 +18,76 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { getCourses, deleteCourse } from "@/redux/slices/admin/courseSlice";
-import { Edit, Eye, Search, Trash2 } from "lucide-react";
+import { Edit, Search, Trash2 } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import { useDispatch, useSelector } from "react-redux";
+import type { AppDispatch, RootState } from "@/redux/store";
+
+/* =======================
+   Types
+======================= */
+
+interface Course {
+  _id: string;
+  title: string;
+  description?: string;
+  language?: string;
+  duration?: string;
+  price?: number;
+}
+
+/* =======================
+   Component
+======================= */
 
 export default function AdminCourse() {
   const router = useRouter();
-  const dispatch = useDispatch();
-  const { courses, loading } = useSelector((state: any) => state.course);
-  const [searchTerm, setSearchTerm] = useState("");
-  console.log(courses);
-  
-  // ✅ Fetch Courses once
+  const dispatch = useDispatch<AppDispatch>();
+
+  const { courses, loading } = useSelector(
+    (state: RootState) => state.course
+  );
+
+  const [searchTerm, setSearchTerm] = useState<string>("");
+
+  /* =======================
+     Fetch Courses
+  ======================= */
+
   useEffect(() => {
     dispatch(getCourses());
-  }, [dispatch]); 
+  }, [dispatch]);
 
- const filteredCourses = Array.isArray(courses)
-  ? courses.filter((course: any) =>
-      course.title?.toLowerCase().includes(searchTerm.toLowerCase())
-    )
-  : [];
+  /* =======================
+     Derived Data
+  ======================= */
 
+  const filteredCourses: Course[] = Array.isArray(courses)
+    ? courses.filter((course: Course) =>
+        course.title?.toLowerCase().includes(searchTerm.toLowerCase())
+      )
+    : [];
+
+  const averagePrice =
+    Array.isArray(courses) && courses.length
+      ? (
+          courses.reduce(
+            (sum: number, course: Course) =>
+              sum + (course.price ?? 0),
+            0
+          ) / courses.length
+        ).toFixed(0)
+      : null;
+
+  const uniqueLanguages =
+    Array.isArray(courses)
+      ? new Set(courses.map((c: Course) => c.language)).size
+      : 0;
+
+  /* =======================
+     UI
+  ======================= */
 
   return (
     <div className="space-y-6 p-3 sm:p-6">
@@ -70,7 +116,9 @@ export default function AdminCourse() {
             <CardTitle className="text-sm">Total Courses</CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-semibold">{courses.length}</div>
+            <div className="text-2xl font-semibold">
+              {courses.length}
+            </div>
             <p className="text-xs text-muted-foreground">
               Active courses in your academy
             </p>
@@ -83,13 +131,8 @@ export default function AdminCourse() {
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-semibold">
-  {Array.isArray(courses) && courses.length
-    ? `₹${(
-        courses.reduce((s: number, c: any) => s + (c.price || 0), 0) /
-        courses.length
-      ).toFixed(0)}`
-    : "—"}
-</div>
+              {averagePrice ? `₹${averagePrice}` : "—"}
+            </div>
             <p className="text-xs text-muted-foreground">
               Average price of your listed courses
             </p>
@@ -102,7 +145,7 @@ export default function AdminCourse() {
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-semibold">
-              {[...new Set(courses.map((c: any) => c.language))].length || 0}
+              {uniqueLanguages}
             </div>
             <p className="text-xs text-muted-foreground">
               Unique languages across all courses
@@ -117,10 +160,12 @@ export default function AdminCourse() {
           <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3">
             <div>
               <CardTitle>Courses</CardTitle>
-              <CardDescription>Manage all your uploaded courses</CardDescription>
+              <CardDescription>
+                Manage all your uploaded courses
+              </CardDescription>
             </div>
             <div className="relative w-full sm:w-[250px]">
-              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground w-4 h-4" />
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground w-4 h-4" />
               <Input
                 placeholder="Search courses..."
                 value={searchTerm}
@@ -153,7 +198,7 @@ export default function AdminCourse() {
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {filteredCourses.map((course: any) => (
+                  {filteredCourses.map((course) => (
                     <TableRow key={course._id}>
                       <TableCell>
                         <div className="font-medium">{course.title}</div>
@@ -163,7 +208,9 @@ export default function AdminCourse() {
                       </TableCell>
                       <TableCell>{course.language || "—"}</TableCell>
                       <TableCell>{course.duration || "—"}</TableCell>
-                      <TableCell>₹{course.price || "—"}</TableCell>
+                      <TableCell>
+                        ₹{course.price ?? "—"}
+                      </TableCell>
                       <TableCell className="text-right">
                         <div className="flex justify-end gap-2">
                           <Button
