@@ -25,7 +25,7 @@ export const registerUser = createAsyncThunk("auth/register", async (formData: a
 export const loginUser = createAsyncThunk("auth/login", async (formData: any) => {
   console.log(formData);
   
-  const response = await axios.post(`${API_URL}/api/auth/login`, formData, {
+  const response = await axios.post(`/api/auth/login`, formData, {
     withCredentials: true,
   });
   console.log(response.data);
@@ -37,13 +37,13 @@ export const loginUser = createAsyncThunk("auth/login", async (formData: any) =>
 export const logOutUser = createAsyncThunk("auth/logout", async () => {
   console.log("coming logout");
   
-  const response = await axios.post(`${API_URL}/api/auth/logout`, { withCredentials: true });
+  const response = await axios.post(`/api/auth/logout`, { withCredentials: true });
   return response.data;
 });
 
 // Check Auth
 export const checkAuth = createAsyncThunk("auth/checkAuth", async () => {
-  const response = await axios.get(`${API_URL}/api/auth/check-auth`, {
+  const response = await axios.get(`/api/auth/check-auth`, {
     withCredentials: true,
     headers: { "Cache-Control": "no-store, no-cache, must-revalidate, proxy-revalidate" },
   });
