@@ -71,40 +71,43 @@ const UpdateCoursePage = () => {
      FETCH COURSE
   ======================= */
 
-  useEffect(() => {
-    if (!id) return;
+useEffect(() => {
+  if (!id) return;
 
-    const fetchCourse = async (): Promise<void> => {
-      try {
-        const res = await dispatch(getCourseById(id)).unwrap();
+  const fetchCourse = async (): Promise<void> => {
+    try {
+      const res = await dispatch(
+        getCourseById({ id }) // ✅ FIX HERE
+      ).unwrap();
 
-        setForm({
-          title: res.title ?? "",
-          description: res.description ?? "",
-          image: res.image ?? "",
-          duration: res.duration ?? "",
-          timing: res.timing ?? "",
-          language: res.language ?? "",
-          price: res.price ?? "",
-          salePrice: res.salePrice ?? "",
-          banner: res.banner ?? "",
-          seat: res.seat ?? "",
-          whatsAppLink: res.whatsAppLink ?? "",
-          telegramLink: res.telegramLink ?? "",
-          modules:
-            Array.isArray(res.modules) && res.modules.length > 0
-              ? res.modules
-              : [{ title: "", zoomLink: "", downloadLink: "" }],
-        });
-      } catch (error: unknown) {
-        console.error(error);
-      } finally {
-        setLoading(false);
-      }
-    };
+      setForm({
+        title: res.title ?? "",
+        description: res.description ?? "",
+        image: res.image ?? "",
+        duration: res.duration ?? "",
+        timing: res.timing ?? "",
+        language: res.language ?? "",
+        price: res.price ?? "",
+        salePrice: res.salePrice ?? "",
+        banner: res.banner ?? "",
+        seat: res.seat ?? "",
+        whatsAppLink: res.whatsAppLink ?? "",
+        telegramLink: res.telegramLink ?? "",
+        modules:
+          Array.isArray(res.modules) && res.modules.length > 0
+            ? res.modules
+            : [{ title: "", zoomLink: "", downloadLink: "" }],
+      });
+    } catch (error: unknown) {
+      console.error(error);
+    } finally {
+      setLoading(false);
+    }
+  };
 
-    fetchCourse();
-  }, [id, dispatch]);
+  fetchCourse();
+}, [id, dispatch]);
+
 
   /* =======================
      HANDLERS

@@ -22,10 +22,14 @@ export const updateCourse = createAsyncThunk("course/update", async ({ id, data 
   const res = await axios.put(`${API_URL}/${id}`, data);
   return res.data;
 });
-export const getCourseById = createAsyncThunk("course/getCourseById", async (id) => {
-  const res = await axios.get(`${API_URL}/${id}`);
-  return res.data;
-});
+export const getCourseById = createAsyncThunk(
+  "course/getCourseById",
+  async (id) => {
+    const res = await axios.get(`${API_URL}/${id}`);
+    return res.data;
+  }
+);
+
 
 export const deleteCourse = createAsyncThunk("course/delete", async (id) => {
   await axios.delete(`${API_URL}/${id}`);
