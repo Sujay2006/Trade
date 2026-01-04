@@ -22,8 +22,8 @@ interface ExtendedRequest extends NextApiRequest {
 
 function deleteFile(filePath?: string) {
   if (!filePath) return;
-
-  const absolutePath = path.join(process.cwd(), "public", filePath);
+  // If filePath already contains "public", adjust logic
+  const absolutePath = path.join(process.cwd(), "public", filePath.replace(/^\/public/, ""));
 
   if (fs.existsSync(absolutePath)) {
     fs.unlinkSync(absolutePath);
@@ -40,12 +40,37 @@ const router = createRouter<ExtendedRequest, NextApiResponse>();
    Multer Middleware
 ========================= */
 
-router.use(
-  upload.fields([
-    { name: "banner", maxCount: 1 },
-  ])
-);
+// ✅ Use 'as any' here to bridge the gap between Express Middleware and Next-Connect
+/* =========================
+   Multer Middleware
+========================= */
 
+/* =========================
+   Multer Middleware
+========================= */
+
+router.use(async (req, res, next) => {
+  const multerMiddleware = upload.fields([
+    { name: "banner", maxCount: 1 },
+  ]);
+
+  return new Promise((resolve, reject) => {
+    // ✅ Use explicit types instead of 'typeof' to avoid circular reference
+    // ✅ Cast through 'unknown' to avoid 'any'
+    const middlewareFn = (multerMiddleware as unknown) as (
+      request: ExtendedRequest,
+      response: NextApiResponse,
+      callback: (err?: Error | unknown) => void
+    ) => void;
+
+    middlewareFn(req, res, (err) => {
+      if (err) {
+        return reject(err);
+      }
+      resolve(next());
+    });
+  });
+});
 /* =========================
    DELETE → Remove banner
 ========================= */
@@ -64,10 +89,7 @@ router.delete(async (req, res) => {
       return res.status(404).json({ message: "Banner not found" });
     }
 
-    // Delete file from disk
     deleteFile(banner.banner);
-
-    // Delete banner from DB
     await Banner.findByIdAndDelete(id);
 
     return res.status(200).json({
@@ -76,10 +98,7 @@ router.delete(async (req, res) => {
     });
   } catch (err: unknown) {
     console.error("BANNER DELETE ERROR:", err);
-
-    const message =
-      err instanceof Error ? err.message : "Failed to delete banner";
-
+    const message = err instanceof Error ? err.message : "Failed to delete banner";
     return res.status(500).json({ message });
   }
 });
@@ -88,10 +107,20 @@ router.delete(async (req, res) => {
    Export
 ========================= */
 
-export default router.handler();
+export default router.handler({
+  onError: (err, _req, res) => {
+    // Narrow the 'err' type from 'unknown' to 'Error'
+    const errorMessage = err instanceof Error ? err.message : "Internal Server Error";
+    console.error(errorMessage);
+    res.status(500).json({ message: errorMessage });
+  },
+  onNoMatch: (_req, res) => {
+    res.status(405).json({ message: "Method Not Allowed" });
+  },
+});
 
 export const config = {
   api: {
-    bodyParser: false, // Required for Multer
+    bodyParser: false, 
   },
 };

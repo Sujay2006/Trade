@@ -40,12 +40,35 @@ interface ExtendedRequest extends NextApiRequest {
 const router = createRouter<ExtendedRequest, NextApiResponse>();
 
 // Multer middleware (FILES ONLY)
-router.use(
-  upload.fields([
-    { name: "image", maxCount: 1 },
+router.use(async (req, res, next) => {
+  const multerMiddleware = upload.fields([
+   { name: "image", maxCount: 1 },
     { name: "banner", maxCount: 1 },
-  ])
-);
+  ]);
+
+  return new Promise((resolve, reject) => {
+    // ✅ Use explicit types instead of 'typeof' to avoid circular reference
+    // ✅ Cast through 'unknown' to avoid 'any'
+    const middlewareFn = (multerMiddleware as unknown) as (
+      request: ExtendedRequest,
+      response: NextApiResponse,
+      callback: (err?: Error | unknown) => void
+    ) => void;
+
+    middlewareFn(req, res, (err) => {
+      if (err) {
+        return reject(err);
+      }
+      resolve(next());
+    });
+  });
+});
+// router.use(
+//   upload.fields([
+//     { name: "image", maxCount: 1 },
+//     { name: "banner", maxCount: 1 },
+//   ])
+// );
 
 /* =========================
    GET /api/admin/course/:id
