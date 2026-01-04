@@ -1,7 +1,7 @@
-import { createSlice, createAsyncThunk, PayloadAction } from "@reduxjs/toolkit";
+import { createSlice, createAsyncThunk, PayloadAction, SerializedError } from "@reduxjs/toolkit";
 import axios from "axios";
 
-const API_URL = process.env.NEXT_PUBLIC_API_URL + "/api/admin/blog";
+const API_URL = `${process.env.NEXT_PUBLIC_API_URL}/api/admin/blog`;
 
 /* =======================
     Types
@@ -13,7 +13,8 @@ export interface Blog {
   image: string;
   category?: string;
   createdAt?: string;
-  [key: string]: any; 
+  // ✅ Removed 'any' - specified allowed types for dynamic fields
+  [key: string]: string | number | boolean | undefined; 
 }
 
 interface BlogState {
@@ -39,13 +40,11 @@ export const getBlogs = createAsyncThunk("blog/getBlogs", async () => {
   const res = await axios.get(`${API_URL}/get`);
   const data = res.data;
   
-  // Normalize response to return array
   if (Array.isArray(data)) return data;
   if (Array.isArray(data?.blogs)) return data.blogs;
-  return []; 
+  return [] as Blog[]; 
 });
 
-// Added this to prevent the "Argument of type {id} is not assignable" error in Edit pages
 export const getBlogById = createAsyncThunk(
   "blog/getBlogById",
   async ({ id }: { id: string }) => {
@@ -120,12 +119,16 @@ const blogSlice = createSlice({
       .addCase(deleteBlog.fulfilled, (state, action: PayloadAction<string>) => {
         state.blogs = state.blogs.filter((b) => b._id !== action.payload);
       })
-      // Error
+      /* =======================
+          Error Handling Matcher
+         ======================= */
       .addMatcher(
-        (action) => action.type.endsWith("/rejected"),
-        (state, action: any) => {
+        // ✅ Removed 'any' - using SerializedError type guard
+        (action): action is PayloadAction<never, string, never, SerializedError> => 
+          action.type.endsWith("/rejected"),
+        (state, action) => {
           state.loading = false;
-          state.error = action.error.message;
+          state.error = action.error?.message || "An unexpected error occurred";
         }
       );
   },
