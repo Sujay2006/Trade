@@ -1,35 +1,38 @@
+import type { NextApiRequest, NextApiResponse } from "next";
 import { connectDb } from "@/lib/connectDb";
 import User from "@/models/User";
 import jwt from "jsonwebtoken";
-import { cookies } from "next/headers";
-import { NextResponse } from "next/server";
+import { serialize } from "cookie";
 
-export async function POST(req: Request) {
+export default async function handler(req: NextApiRequest, res: NextApiResponse) {
+  // 1. Only allow POST
+  if (req.method !== "POST") {
+    return res.status(405).json({ message: "Method not allowed" });
+  }
+
   try {
     await connectDb();
-    const { email, userName, googleId, profilePicture } = await req.json();
+    const { email, userName, googleId, profilePicture } = req.body;
 
-    const jwtSecret = process.env.JWT_SECRET;
-    if (!jwtSecret) {
-      throw new Error("JWT_SECRET is not defined in environment variables");
-    }
-
+    // 2. Check if user exists
     const existing = await User.findOne({ email });
     if (existing) {
-      return NextResponse.json(
-        { success: false, message: "User already exists" },
-        { status: 400 }
-      );
+      return res.status(400).json({ success: false, message: "User already exists" });
     }
 
+    // 3. Create User
     const newUser = await User.create({
       email,
       userName,
       googleId,
-      password: googleId, // Note: Consider hashing if this is used for login later
+      password: googleId, // Note: Consider hashing if ever used for standard login
       profilePicture,
     });
 
+    const jwtSecret = process.env.JWT_SECRET;
+    if (!jwtSecret) throw new Error("JWT_SECRET is missing from env");
+
+    // 4. Generate Token
     const token = jwt.sign(
       {
         id: newUser._id,
@@ -41,8 +44,8 @@ export async function POST(req: Request) {
       { expiresIn: "1h" }
     );
 
-    const cookieStore = await cookies();
-    cookieStore.set("token", token, {
+    // 5. Set Cookie Header
+    const cookieHeader = serialize("token", token, {
       httpOnly: true,
       secure: process.env.NODE_ENV === "production",
       sameSite: "strict",
@@ -50,7 +53,9 @@ export async function POST(req: Request) {
       path: "/",
     });
 
-    return NextResponse.json({
+    res.setHeader("Set-Cookie", cookieHeader);
+
+    return res.status(201).json({
       success: true,
       message: "Registered via Google",
       user: {
@@ -61,8 +66,8 @@ export async function POST(req: Request) {
       },
     });
   } catch (error: unknown) {
-    console.error("GOOGLE_LOGIN_ERROR:", error);
-    const message = error instanceof Error ? error.message : "Internal Server Error";
-    return NextResponse.json({ success: false, message }, { status: 500 });
+    console.error("REGISTER_ERROR:", error);
+    const msg = error instanceof Error ? error.message : "Internal Error";
+    return res.status(500).json({ success: false, message: msg });
   }
 }
