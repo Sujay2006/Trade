@@ -1,34 +1,41 @@
-import { createSlice, createAsyncThunk, PayloadAction } from "@reduxjs/toolkit";
+import { createSlice, createAsyncThunk, PayloadAction, SerializedError } from "@reduxjs/toolkit";
 import axios from "axios";
 
-const API_URL = process.env.NEXT_PUBLIC_API_URL + "/api/admin/course";
+const API_URL = `${process.env.NEXT_PUBLIC_API_URL}/api/admin/course`;
 
 /* =======================
     Types
    ======================= */
-interface Module {
+export interface Module {
   title: string;
   zoomLink: string;
   downloadLink: string;
 }
 
-interface Course {
+export interface Course {
   _id: string;
   title: string;
   description: string;
   image: string;
   price: string;
   salePrice: string;
+  duration?: string;
+  timing?: string;
+  language?: string;
+  seat?: string;
+  whatsAppLink?: string;
+  telegramLink?: string;
   modules: Module[];
-  [key: string]: any; // For other dynamic fields
+  [key: string]: string | Module[] | undefined; 
 }
 
-interface CourseState {
+export interface CourseState {
   courses: Course[];
   course: Course | null;
   loading: boolean;
   error: string | null | undefined;
 }
+
 
 /* =======================
     Thunks
@@ -36,7 +43,7 @@ interface CourseState {
 
 export const createCourse = createAsyncThunk(
   "course/create",
-  async (data: FormData | any) => {
+  async (data: FormData) => {
     const res = await axios.post(API_URL, data);
     return res.data;
   }
@@ -47,19 +54,17 @@ export const getCourses = createAsyncThunk("course/getCourses", async () => {
   const data = res.data;
   if (Array.isArray(data)) return data;
   if (Array.isArray(data?.courses)) return data.courses;
-  return [];
+  return [] as Course[];
 });
 
-// ✅ Matches component call: dispatch(updateCourse({ id, data }))
 export const updateCourse = createAsyncThunk(
   "course/update",
-  async ({ id, data }: { id: string; data: FormData | any }) => {
+  async ({ id, data }: { id: string; data: FormData }) => {
     const res = await axios.put(`${API_URL}/${id}`, data);
     return res.data;
   }
 );
 
-// ✅ FIXED: Matches component call: dispatch(getCourseById({ id }))
 export const getCourseById = createAsyncThunk(
   "course/getCourseById",
   async ({ id }: { id: string }) => {
@@ -115,7 +120,7 @@ const courseSlice = createSlice({
       })
       .addCase(getCourses.fulfilled, (state, action: PayloadAction<Course[]>) => {
         state.loading = false;
-        state.courses = Array.isArray(action.payload) ? action.payload : [];
+        state.courses = action.payload;
       })
       // Update
       .addCase(updateCourse.fulfilled, (state, action: PayloadAction<Course>) => {
@@ -127,12 +132,15 @@ const courseSlice = createSlice({
       .addCase(deleteCourse.fulfilled, (state, action: PayloadAction<string>) => {
         state.courses = state.courses.filter((c) => c._id !== action.payload);
       })
-      // Error Handling
+      /* =======================
+          Error Handling Matcher
+         ======================= */
       .addMatcher(
-        (action) => action.type.endsWith("/rejected"),
-        (state, action: any) => {
+        (action): action is PayloadAction<never, string, never, SerializedError> => 
+          action.type.endsWith("/rejected"),
+        (state, action) => {
           state.loading = false;
-          state.error = action.error.message;
+          state.error = action.error?.message || "An unexpected error occurred";
         }
       );
   },
