@@ -1,76 +1,100 @@
-import { createAsyncThunk, createSlice } from "@reduxjs/toolkit";
+import { createAsyncThunk, createSlice, PayloadAction } from "@reduxjs/toolkit";
 import axios from "axios";
 
-const API_URL = process.env.NEXT_PUBLIC_API_URL;
+/* =========================
+   Types
+========================= */
+
+// ✅ Replaced 'any' with 'unknown' or defined keys to satisfy linter
+interface UserData {
+  id: string;
+  email: string;
+  userName: string;
+  role: string;
+  profilePicture?: string;
+}
+
 interface AuthState {
   isAuthenticated: boolean;
   isLoading: boolean;
-  user: Record<string, any> | null;
-} 
-const initialState = {
+  user: UserData | null;
+}
+
+const initialState: AuthState = {
   isAuthenticated: false,
   isLoading: true,
-  user: null as null | Record<string, any>,
+  user: null,
 };
 
-// Standard Registration
-export const registerUser = createAsyncThunk("auth/register", async (formData: any) => {
-  const response = await axios.post(`${API_URL}/api/auth/register`, formData, {
-    withCredentials: true,
-  });
-  return response.data;
-});
+/* =========================
+   Async Thunks (Using Relative Paths)
+========================= */
 
-// Standard Login
-export const loginUser = createAsyncThunk("auth/login", async (formData: any) => {
-  console.log(formData);
-  
-  const response = await axios.post(`/api/auth/login`, formData, {
-    withCredentials: true,
-  });
-  console.log(response.data);
-  
-  return response.data;
-});
+export const registerUser = createAsyncThunk(
+  "auth/register",
+  async (formData: unknown) => {
+    const response = await axios.post(`/api/auth/register`, formData, {
+      withCredentials: true,
+    });
+    return response.data;
+  }
+);
 
-// Logout
+export const loginUser = createAsyncThunk(
+  "auth/login",
+  async (formData: unknown) => {
+    const response = await axios.post(`/api/auth/login`, formData, {
+      withCredentials: true,
+    });
+    return response.data;
+  }
+);
+
 export const logOutUser = createAsyncThunk("auth/logout", async () => {
-  console.log("coming logout");
-  
-  const response = await axios.post(`/api/auth/logout`, { withCredentials: true });
+  const response = await axios.post(`/api/auth/logout`, {}, { withCredentials: true });
   return response.data;
 });
 
-// Check Auth
 export const checkAuth = createAsyncThunk("auth/checkAuth", async () => {
   const response = await axios.get(`/api/auth/check-auth`, {
     withCredentials: true,
-    headers: { "Cache-Control": "no-store, no-cache, must-revalidate, proxy-revalidate" },
+    headers: {
+      "Cache-Control": "no-store, no-cache, must-revalidate, proxy-revalidate",
+    },
   });
   return response.data;
 });
 
-// Google Registration
-export const registerUserByGoogle = createAsyncThunk("auth/google-register", async (formData: any) => {
-  const response = await axios.post(`${API_URL}/api/auth/google-register`, formData, {
-    withCredentials: true,
-  });
-  return response.data;
-});
+export const registerUserByGoogle = createAsyncThunk(
+  "auth/google-register",
+  async (formData: unknown) => {
+    const response = await axios.post(`/api/auth/google-register`, formData, {
+      withCredentials: true,
+    });
+    return response.data;
+  }
+);
 
-// Google Login
-export const loginUserByGoogle = createAsyncThunk("auth/google-login", async (formData: any) => {
-  const response = await axios.post(`${API_URL}/api/auth/google-login`, formData, {
-    withCredentials: true,
-  });
-  return response.data;
-});
+export const loginUserByGoogle = createAsyncThunk(
+  "auth/google-login",
+  async (formData: unknown) => {
+    const response = await axios.post(`/api/auth/google-login`, formData, {
+      withCredentials: true,
+    });
+    return response.data;
+  }
+);
+
+/* =========================
+   Slice
+========================= */
 
 const authSlice = createSlice({
   name: "auth",
   initialState,
   reducers: {
-    setUser: (state, action) => {
+    // ✅ Replaced Record<string, any> with UserData | null
+    setUser: (state, action: PayloadAction<UserData | null>) => {
       state.user = action.payload;
       state.isAuthenticated = !!action.payload;
     },
@@ -83,31 +107,39 @@ const authSlice = createSlice({
         state.isAuthenticated = false;
       })
       .addCase(loginUser.fulfilled, (state, action) => {
-        console.log("Login payload:", action.payload); // Debug
-  state.isLoading = false;
-  state.user = action.payload?.success ? action.payload.user : null;
-  state.isAuthenticated = !!action.payload?.success;
+        state.isLoading = false;
+        const success = action.payload?.success;
+        state.user = success ? (action.payload.user as UserData) : null;
+        state.isAuthenticated = !!success;
       })
       .addCase(registerUserByGoogle.fulfilled, (state, action) => {
         state.isLoading = false;
-        state.user = action.payload.success ? action.payload.user : null;
-        state.isAuthenticated = action.payload.success;
+        const success = action.payload?.success;
+        state.user = success ? (action.payload.user as UserData) : null;
+        state.isAuthenticated = !!success;
       })
       .addCase(loginUserByGoogle.fulfilled, (state, action) => {
         state.isLoading = false;
-        state.user = action.payload.success ? action.payload.user : null;
-        state.isAuthenticated = action.payload.success;
+        const success = action.payload?.success;
+        state.user = success ? (action.payload.user as UserData) : null;
+        state.isAuthenticated = !!success;
       })
       .addCase(checkAuth.fulfilled, (state, action) => {
         state.isLoading = false;
-        state.user = action.payload.success ? action.payload.user : null;
-        state.isAuthenticated = action.payload.success;
+        const success = action.payload?.success;
+        state.user = success ? (action.payload.user as UserData) : null;
+        state.isAuthenticated = !!success;
+      })
+      .addCase(checkAuth.rejected, (state) => {
+        state.isLoading = false;
+        state.user = null;
+        state.isAuthenticated = false;
       })
       .addCase(logOutUser.fulfilled, (state) => {
-      state.user = null;
-      state.isAuthenticated = false;
-      state.isLoading = false;
-    });
+        state.user = null;
+        state.isAuthenticated = false;
+        state.isLoading = false;
+      });
   },
 });
 
