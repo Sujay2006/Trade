@@ -1,7 +1,8 @@
 import { createSlice, createAsyncThunk, PayloadAction, SerializedError } from "@reduxjs/toolkit";
 import axios from "axios";
 
-const API_URL = `${process.env.NEXT_PUBLIC_API_URL}/api/admin/course`;
+const API_URL = `/api/admin/course`;
+// const API_URL = `${process.env.NEXT_PUBLIC_API_URL}/api/admin/course`;
 
 /* =======================
     Types
