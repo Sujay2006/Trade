@@ -1,10 +1,9 @@
 "use client";
 
-import { Button } from "@/components/ui/button";
+import Image from "next/image";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { getBlogs } from "@/redux/slices/admin/blogSlice";
 import { getCourses } from "@/redux/slices/admin/courseSlice";
-import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import { useDispatch, useSelector } from "react-redux";
 import type { AppDispatch, RootState } from "@/redux/store";
@@ -23,15 +22,12 @@ interface Banner {
 ======================= */
 
 export default function AdminHome() {
-  const router = useRouter();
   const dispatch = useDispatch<AppDispatch>();
 
   const courses = useSelector((state: RootState) => state.course.courses);
   const blogs = useSelector((state: RootState) => state.blog.blogs);
 
   const [banner, setBanner] = useState<Banner[]>([]);
-  const [loading, setLoading] = useState<boolean>(true);
-  const [newBanner, setNewBanner] = useState<File | null>(null);
 
   /* =======================
      Fetch Banners
@@ -44,8 +40,6 @@ export default function AdminHome() {
       setBanner(data.banners);
     } catch (error: unknown) {
       console.error("Failed to fetch banners", error);
-    } finally {
-      setLoading(false);
     }
   };
 
@@ -53,12 +47,27 @@ export default function AdminHome() {
      Handlers
   ======================= */
 
-  const handleImageDrop = (e: React.DragEvent<HTMLDivElement>): void => {
+  const handleImageDrop = async (
+    e: React.DragEvent<HTMLDivElement>
+  ): Promise<void> => {
     e.preventDefault();
     const file = e.dataTransfer.files[0];
 
-    if (file && file.type.startsWith("image/")) {
-      setNewBanner(file);
+    if (!file || !file.type.startsWith("image/")) return;
+
+    const formData = new FormData();
+    formData.append("banner", file);
+
+    const res = await fetch("/api/admin/banner", {
+      method: "POST",
+      body: formData,
+    });
+
+    const data: { success: boolean } = await res.json();
+
+    if (data.success) {
+      alert("Banner uploaded successfully");
+      fetchBanner();
     }
   };
 
@@ -66,10 +75,7 @@ export default function AdminHome() {
     e: React.ChangeEvent<HTMLInputElement>
   ): Promise<void> => {
     const file = e.target.files?.[0];
-
     if (!file || !file.type.startsWith("image/")) return;
-
-    setNewBanner(file);
 
     const formData = new FormData();
     formData.append("banner", file);
@@ -113,15 +119,14 @@ export default function AdminHome() {
 
   return (
     <div className="space-y-6 p-3 sm:p-6">
-      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3">
-        <div>
-          <h1 className="text-2xl sm:text-3xl mb-1 font-semibold">
-            Course Management
-          </h1>
-          <p className="text-muted-foreground text-sm sm:text-base">
-            Manage your trading courses and track their performance
-          </p>
-        </div>
+      {/* Header */}
+      <div>
+        <h1 className="text-2xl sm:text-3xl mb-1 font-semibold">
+          Course Management
+        </h1>
+        <p className="text-muted-foreground text-sm sm:text-base">
+          Manage your trading courses and track their performance
+        </p>
       </div>
 
       {/* Stats Cards */}
@@ -166,9 +171,11 @@ export default function AdminHome() {
       <div className="flex gap-5 flex-wrap">
         {banner.map((b) => (
           <div key={b._id} className="relative inline-block">
-            <img
+            <Image
               src={b.banner}
-              alt="Banner"
+              alt="Promotional banner"
+              width={300}
+              height={160}
               className="mx-auto h-40 object-contain rounded"
             />
 
