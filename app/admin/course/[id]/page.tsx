@@ -44,7 +44,10 @@ interface CourseForm {
 const UpdateCoursePage = () => {
   const dispatch = useDispatch<AppDispatch>();
   const router = useRouter();
-  const { id } = useParams<{ id: string }>();
+
+  // ✅ SAFE params handling (FIX)
+  const params = useParams();
+  const id = typeof params?.id === "string" ? params.id : "";
 
   const [loading, setLoading] = useState<boolean>(true);
 
@@ -69,6 +72,8 @@ const UpdateCoursePage = () => {
   ======================= */
 
   useEffect(() => {
+    if (!id) return;
+
     const fetchCourse = async (): Promise<void> => {
       try {
         const res = await dispatch(getCourseById(id)).unwrap();
@@ -98,7 +103,7 @@ const UpdateCoursePage = () => {
       }
     };
 
-    if (id) fetchCourse();
+    fetchCourse();
   }, [id, dispatch]);
 
   /* =======================
@@ -163,6 +168,8 @@ const UpdateCoursePage = () => {
   ======================= */
 
   const handleSubmit = async (): Promise<void> => {
+    if (!id) return;
+
     try {
       const formData = new FormData();
 
@@ -197,7 +204,6 @@ const UpdateCoursePage = () => {
 
   return (
     <div className="w-full p-8 bg-white rounded-2xl shadow-lg space-y-8">
-      {/* Header */}
       <div className="flex sm:flex-row flex-col justify-between items-center gap-10">
         <Button
           onClick={handleSubmit}
@@ -222,7 +228,6 @@ const UpdateCoursePage = () => {
         </Button>
       </div>
 
-      {/* Description + Image */}
       <div className="sm:flex justify-between gap-10">
         <div className="w-full space-y-5">
           <EditableField
