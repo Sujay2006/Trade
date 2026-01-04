@@ -4,21 +4,25 @@ import React, { useState } from "react";
 import { AdminSideBar } from "@/config/formControls";
 import { Cross, MenuIcon } from "lucide-react";
 import { useRouter } from "next/navigation";
-// import { useAppDispatch } from "@/redux/store"; // ✅ your typed dispatch hook
 import { logOutUser } from "@/redux/slices/auth/authSlice";
 import { useDispatch } from "react-redux";
+// ✅ Import AppDispatch
+import type { AppDispatch } from "@/redux/store";
 
 const Sidebar = () => {
-  const [isOpen, setIsOpen] = useState(false); // default closed on mobile
+  const [isOpen, setIsOpen] = useState(false);
   const router = useRouter();
-  const dispatch = useDispatch();
+  
+  // ✅ Type your dispatch hook
+  const dispatch = useDispatch<AppDispatch>();
 
   const handleLogout = async () => {
     try {
+      // .unwrap() allows you to catch the actual error if the thunk fails
       await dispatch(logOutUser()).unwrap();
       router.push("/login");
-    } catch (error) {
-      console.error("Logout failed:", error);
+    } catch (error: any) { // ✅ Changing to 'any' or handling as 'unknown' clears the build error
+      console.error("Logout failed:", error?.message || error);
     }
   };
 
@@ -39,7 +43,6 @@ const Sidebar = () => {
         <div>
           <div className="font-extrabold text-2xl flex justify-between items-center mb-6">
             <span>Admin Panel</span>
-            {/* Close icon visible only on mobile */}
             <div className="lg:hidden" onClick={() => setIsOpen(false)}>
               <Cross size={20} />
             </div>
