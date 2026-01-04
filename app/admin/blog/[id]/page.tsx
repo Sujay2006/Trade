@@ -44,7 +44,9 @@ interface ImageDropZoneProps {
 ======================= */
 
 export default function UpdateBlog() {
-  const { id } = useParams<{ id: string }>();
+  const params = useParams();
+  const id = typeof params?.id === "string" ? params.id : "";
+
   const router = useRouter();
 
   const [title, setTitle] = useState<string>("");
@@ -57,6 +59,8 @@ export default function UpdateBlog() {
   ======================= */
 
   useEffect(() => {
+    if (!id) return;
+
     const fetchBlog = async (): Promise<void> => {
       try {
         const res = await fetch(`/api/admin/blog/${id}`);
@@ -70,7 +74,10 @@ export default function UpdateBlog() {
         setContent(
           (blog.content || []).map((block: CleanContentBlock) => ({
             type: block.type,
-            value: block.type === "image" ? block.value ?? null : block.value ?? "",
+            value:
+              block.type === "image"
+                ? block.value ?? null
+                : block.value ?? "",
           }))
         );
       } catch (error: unknown) {
@@ -81,7 +88,7 @@ export default function UpdateBlog() {
       }
     };
 
-    if (id) fetchBlog();
+    fetchBlog();
   }, [id]);
 
   /* =======================
@@ -125,8 +132,8 @@ export default function UpdateBlog() {
   ======================= */
 
   const updateBlog = async (): Promise<void> => {
-    if (!title.trim()) {
-      alert("Title missing");
+    if (!title.trim() || !id) {
+      alert("Title or ID missing");
       return;
     }
 
@@ -199,7 +206,11 @@ export default function UpdateBlog() {
         <Button onClick={addImageBlock}>+ Add Image</Button>
       </div>
 
-      <Button className="w-full mt-6" onClick={updateBlog} disabled={saving}>
+      <Button
+        className="w-full mt-6"
+        onClick={updateBlog}
+        disabled={saving}
+      >
         {saving ? "Updating..." : "Update Blog"}
       </Button>
     </div>
@@ -221,10 +232,18 @@ function BlockRenderer({
   return (
     <div className="relative flex group gap-3">
       <div className="flex flex-col justify-between">
-        <Button size="icon" variant="ghost" onClick={() => moveBlock(index, "up")}>
+        <Button
+          size="icon"
+          variant="ghost"
+          onClick={() => moveBlock(index, "up")}
+        >
           <ChevronUp size={14} />
         </Button>
-        <Button size="icon" variant="ghost" onClick={() => moveBlock(index, "down")}>
+        <Button
+          size="icon"
+          variant="ghost"
+          onClick={() => moveBlock(index, "down")}
+        >
           <ChevronDown size={14} />
         </Button>
       </div>
