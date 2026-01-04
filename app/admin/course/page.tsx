@@ -17,29 +17,13 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { getCourses, deleteCourse } from "@/redux/slices/admin/courseSlice";
+// ✅ Import the Course type from your slice to prevent "Two different types" error
+import { getCourses, deleteCourse, Course } from "@/redux/slices/admin/courseSlice";
 import { Edit, Search, Trash2 } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import { useDispatch, useSelector } from "react-redux";
 import type { AppDispatch, RootState } from "@/redux/store";
-
-/* =======================
-   Types
-======================= */
-
-interface Course {
-  _id: string;
-  title: string;
-  description?: string;
-  language?: string;
-  duration?: string;
-  price?: number;
-}
-
-/* =======================
-   Component
-======================= */
 
 export default function AdminCourse() {
   const router = useRouter();
@@ -51,18 +35,15 @@ export default function AdminCourse() {
 
   const [searchTerm, setSearchTerm] = useState<string>("");
 
-  /* =======================
-     Fetch Courses
-  ======================= */
-
   useEffect(() => {
     dispatch(getCourses());
   }, [dispatch]);
 
   /* =======================
-     Derived Data
-  ======================= */
+      Derived Data
+     ======================= */
 
+  // ✅ Use the imported Course type here
   const filteredCourses: Course[] = Array.isArray(courses)
     ? courses.filter((course: Course) =>
         course.title?.toLowerCase().includes(searchTerm.toLowerCase())
@@ -70,11 +51,12 @@ export default function AdminCourse() {
     : [];
 
   const averagePrice =
-    Array.isArray(courses) && courses.length
+    Array.isArray(courses) && courses.length > 0
       ? (
           courses.reduce(
             (sum: number, course: Course) =>
-              sum + (course.price ?? 0),
+              // ✅ Cast to Number in case the API returns a string
+              sum + (Number(course.price) || 0),
             0
           ) / courses.length
         ).toFixed(0)
@@ -85,13 +67,8 @@ export default function AdminCourse() {
       ? new Set(courses.map((c: Course) => c.language)).size
       : 0;
 
-  /* =======================
-     UI
-  ======================= */
-
   return (
     <div className="space-y-6 p-3 sm:p-6">
-      {/* Header */}
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3">
         <div>
           <h1 className="text-2xl sm:text-3xl mb-1 font-semibold">
@@ -109,7 +86,6 @@ export default function AdminCourse() {
         </Button>
       </div>
 
-      {/* Stats Cards */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
         <Card>
           <CardHeader className="pb-2">
@@ -154,7 +130,6 @@ export default function AdminCourse() {
         </Card>
       </div>
 
-      {/* Courses Table */}
       <Card className="overflow-hidden">
         <CardHeader>
           <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3">
