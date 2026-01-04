@@ -15,14 +15,17 @@ const Sidebar = () => {
   
   // ✅ Type your dispatch hook
   const dispatch = useDispatch<AppDispatch>();
-
-  const handleLogout = async () => {
+const handleLogout = async () => {
     try {
-      // .unwrap() allows you to catch the actual error if the thunk fails
       await dispatch(logOutUser()).unwrap();
       router.push("/login");
-    } catch (error: any) { // ✅ Changing to 'any' or handling as 'unknown' clears the build error
-      console.error("Logout failed:", error?.message || error);
+    } catch (error) {
+      // ✅ Check if error is an instance of Error to access .message safely
+      if (error instanceof Error) {
+        console.error("Logout failed:", error.message);
+      } else {
+        console.error("Logout failed:", String(error));
+      }
     }
   };
 
