@@ -5,7 +5,7 @@ import storage from "redux-persist/lib/storage"; // defaults to localStorage for
 import { persistReducer, persistStore } from "redux-persist";
 import authReducer from "./slices/auth/authSlice";
 import adminReducer from "./slices/admin/courseSlice";
-import adminblogReducer from "./slices/admin/courseSlice";
+import adminblogReducer from "./slices/admin/blogSlice";
 
 // Combine all reducers
 const rootReducer = combineReducers({
