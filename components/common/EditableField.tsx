@@ -10,6 +10,7 @@ interface EditableFieldProps {
   placeholder?: string;
   size?: "sm" | "md" | "lg";
   className?: string;
+  label?: string; // ✅ ADDED THIS LINE
 }
 
 export function EditableField({
@@ -19,7 +20,7 @@ export function EditableField({
   placeholder,
   size = "md",
   className = "",
-  label = "",
+  label = "", // This now works because it's in the interface above
 }: EditableFieldProps) {
   const [isEditing, setIsEditing] = useState(false);
   const ref = useRef<HTMLInputElement | HTMLTextAreaElement>(null);
@@ -65,12 +66,17 @@ export function EditableField({
             <div className="">
               <div className={`${className}`}>{value}</div>
               {label && (
-                <div className="text-gray-400 text-sm">{label}</div>
-              ) }
+                <div className="text-gray-400 text-sm font-normal">{label}</div>
+              )}
             </div>
           ) : (
-            <div className={`${className} text-gray-400 italic`}>
-              {placeholder || "Click to edit"}
+            <div className="">
+                <div className={`${className} text-gray-400 italic`}>
+                    {placeholder || "Click to edit"}
+                </div>
+                {label && (
+                    <div className="text-gray-400 text-sm font-normal">{label}</div>
+                )}
             </div>
           )}
         </div>
