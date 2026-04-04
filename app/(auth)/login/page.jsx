@@ -103,7 +103,7 @@ const LoginPage = () => {
       <p className="mt-2 text-center text-sm">
         Don&apos;t have an account?
         <Link
-          href="/auth/register"
+          href="/register"
           className="ml-1 font-medium text-primary hover:underline"
         >
           Register

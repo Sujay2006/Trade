@@ -2,16 +2,16 @@ import { createAsyncThunk, createSlice, PayloadAction } from "@reduxjs/toolkit";
 import axios from "axios";
 
 /* =========================
-   Types
+    Types
 ========================= */
 
-// ✅ Replaced 'any' with 'unknown' or defined keys to satisfy linter
 interface UserData {
   id: string;
   email: string;
   userName: string;
   role: string;
   profilePicture?: string;
+  phone?: string;
 }
 
 interface AuthState {
@@ -22,14 +22,15 @@ interface AuthState {
 
 const initialState: AuthState = {
   isAuthenticated: false,
-  isLoading: true,
+  isLoading: true, // Starts as true to prevent flicker during checkAuth
   user: null,
 };
 
 /* =========================
-   Async Thunks (Using Relative Paths)
+    Async Thunks
 ========================= */
 
+// Standard Email/Password Register
 export const registerUser = createAsyncThunk(
   "auth/register",
   async (formData: unknown) => {
@@ -40,10 +41,22 @@ export const registerUser = createAsyncThunk(
   }
 );
 
+// Standard Email/Password Login
 export const loginUser = createAsyncThunk(
   "auth/login",
   async (formData: unknown) => {
     const response = await axios.post(`/api/auth/login`, formData, {
+      withCredentials: true,
+    });
+    return response.data;
+  }
+);
+
+// New Combined Google Auth (Handles both Register & Login)
+export const loginUserByGoogle = createAsyncThunk(
+  "auth/google-auth",
+  async (formData: unknown) => {
+    const response = await axios.post(`/api/auth/google-auth`, formData, {
       withCredentials: true,
     });
     return response.data;
@@ -59,41 +72,20 @@ export const checkAuth = createAsyncThunk("auth/checkAuth", async () => {
   const response = await axios.get(`/api/auth/check-auth`, {
     withCredentials: true,
     headers: {
-      "Cache-Control": "no-store, no-cache, must-revalidate, proxy-revalidate",
+      "Cache-Control": "no-store",
     },
   });
   return response.data;
 });
 
-export const registerUserByGoogle = createAsyncThunk(
-  "auth/google-register",
-  async (formData: unknown) => {
-    const response = await axios.post(`/api/auth/google-register`, formData, {
-      withCredentials: true,
-    });
-    return response.data;
-  }
-);
-
-export const loginUserByGoogle = createAsyncThunk(
-  "auth/google-login",
-  async (formData: unknown) => {
-    const response = await axios.post(`/api/auth/google-login`, formData, {
-      withCredentials: true,
-    });
-    return response.data;
-  }
-);
-
 /* =========================
-   Slice
+    Slice
 ========================= */
 
 const authSlice = createSlice({
   name: "auth",
   initialState,
   reducers: {
-    // ✅ Replaced Record<string, any> with UserData | null
     setUser: (state, action: PayloadAction<UserData | null>) => {
       state.user = action.payload;
       state.isAuthenticated = !!action.payload;
@@ -101,28 +93,30 @@ const authSlice = createSlice({
   },
   extraReducers: (builder) => {
     builder
-      .addCase(registerUser.fulfilled, (state) => {
+      // REGISTER: Now handles immediate login
+      .addCase(registerUser.fulfilled, (state, action) => {
         state.isLoading = false;
-        state.user = null;
-        state.isAuthenticated = false;
+        const success = action.payload?.success;
+        state.user = success ? (action.payload.user as UserData) : null;
+        state.isAuthenticated = !!success;
       })
+      // LOGIN
       .addCase(loginUser.fulfilled, (state, action) => {
         state.isLoading = false;
         const success = action.payload?.success;
         state.user = success ? (action.payload.user as UserData) : null;
         state.isAuthenticated = !!success;
       })
-      .addCase(registerUserByGoogle.fulfilled, (state, action) => {
-        state.isLoading = false;
-        const success = action.payload?.success;
-        state.user = success ? (action.payload.user as UserData) : null;
-        state.isAuthenticated = !!success;
-      })
+      // GOOGLE AUTH (Combined Register/Login)
       .addCase(loginUserByGoogle.fulfilled, (state, action) => {
         state.isLoading = false;
         const success = action.payload?.success;
         state.user = success ? (action.payload.user as UserData) : null;
         state.isAuthenticated = !!success;
+      })
+      // CHECK AUTH
+      .addCase(checkAuth.pending, (state) => {
+        state.isLoading = true;
       })
       .addCase(checkAuth.fulfilled, (state, action) => {
         state.isLoading = false;
@@ -135,6 +129,7 @@ const authSlice = createSlice({
         state.user = null;
         state.isAuthenticated = false;
       })
+      // LOGOUT
       .addCase(logOutUser.fulfilled, (state) => {
         state.user = null;
         state.isAuthenticated = false;

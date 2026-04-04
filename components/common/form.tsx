@@ -17,12 +17,12 @@ import { Textarea } from "@/components/ui/textarea";
    Types
 ======================= */
 
-type Option = {
+export type Option = {
   id: string;
   label: string;
 };
 
-type FormControl = {
+export type FormControl = {
   name: string;
   label: string;
   placeholder?: string;
@@ -32,12 +32,11 @@ type FormControl = {
   options?: Option[];
 };
 
-type FormDataType = Record<string, unknown>;
-
-interface Props {
-  formControls: FormControl[];
-  formData: FormDataType;
-  setFormData: React.Dispatch<React.SetStateAction<FormDataType>>;
+// Use a generic T to ensure formData and setFormData stay in sync
+interface Props<T> {
+  formControls: readonly FormControl[];
+  formData: T;
+  setFormData: React.Dispatch<React.SetStateAction<T>>;
   onSubmit: (e: React.FormEvent<HTMLFormElement>) => void;
   buttonText?: string;
   isBtnDisabled?: boolean;
@@ -47,15 +46,21 @@ interface Props {
    Component
 ======================= */
 
-const CommonForm: React.FC<Props> = ({
+/**
+ * We use 'extends object' or a mapped type instead of 'any' 
+ * to satisfy the ESLint no-explicit-any rule.
+ */
+function CommonForm<T extends { [key: string]: unknown }>({
   formControls,
   formData,
   setFormData,
   onSubmit,
   buttonText = "Submit",
   isBtnDisabled = false
-}) => {
+}: Props<T>) {
+  
   function renderInputByComponentType(control: FormControl) {
+    // We cast to string for basic inputs, defaulting to empty string
     const value = (formData[control.name] as string) || "";
 
     switch (control.componentType) {
@@ -68,10 +73,10 @@ const CommonForm: React.FC<Props> = ({
             type={control.type}
             value={value}
             onChange={(e) =>
-              setFormData({
-                ...formData,
+              setFormData((prev) => ({
+                ...prev,
                 [control.name]: e.target.value
-              })
+              }))
             }
           />
         );
@@ -81,10 +86,10 @@ const CommonForm: React.FC<Props> = ({
           <Select
             value={value}
             onValueChange={(val) =>
-              setFormData({
-                ...formData,
+              setFormData((prev) => ({
+                ...prev,
                 [control.name]: val
-              })
+              }))
             }
           >
             <SelectTrigger className="w-full">
@@ -108,10 +113,10 @@ const CommonForm: React.FC<Props> = ({
             id={control.name}
             value={value}
             onChange={(e) =>
-              setFormData({
-                ...formData,
+              setFormData((prev) => ({
+                ...prev,
                 [control.name]: e.target.value
-              })
+              }))
             }
           />
         );
@@ -127,10 +132,10 @@ const CommonForm: React.FC<Props> = ({
               placeholder={`Add ${control.label}`}
               value={inputValue}
               onChange={(e) =>
-                setFormData({
-                  ...formData,
+                setFormData((prev) => ({
+                  ...prev,
                   [inputKey]: e.target.value
-                })
+                }))
               }
               onKeyDown={(e) => {
                 if (e.key === "Enter" && e.currentTarget.value.trim()) {
@@ -138,11 +143,11 @@ const CommonForm: React.FC<Props> = ({
                   const newTag = e.currentTarget.value.trim();
 
                   if (!tags.includes(newTag)) {
-                    setFormData({
-                      ...formData,
+                    setFormData((prev) => ({
+                      ...prev,
                       [control.name]: [...tags, newTag],
                       [inputKey]: ""
-                    });
+                    }));
                   }
                 }
               }}
@@ -151,19 +156,18 @@ const CommonForm: React.FC<Props> = ({
             <div className="flex flex-wrap gap-2 mt-2">
               {tags.map((tag, idx) => (
                 <div
-                  key={idx}
+                  key={`${tag}-${idx}`}
                   className="flex items-center gap-1 px-2 py-1 text-sm bg-gray-200 rounded-full"
                 >
                   {tag}
                   <button
                     type="button"
                     onClick={() => {
-                      const updated = [...tags];
-                      updated.splice(idx, 1);
-                      setFormData({
-                        ...formData,
+                      const updated = tags.filter((_, i) => i !== idx);
+                      setFormData((prev) => ({
+                        ...prev,
                         [control.name]: updated
-                      });
+                      }));
                     }}
                     className="ml-1 text-red-500 hover:text-red-700"
                   >
@@ -192,11 +196,15 @@ const CommonForm: React.FC<Props> = ({
         ))}
       </div>
 
-      <Button type="submit" disabled={isBtnDisabled} className="mt-2 w-full">
+      <Button 
+        type="submit" 
+        disabled={isBtnDisabled} 
+        className="mt-6 w-full bg-[#0096FF] hover:bg-[#007acc] text-white font-bold py-6 rounded-xl transition-all"
+      >
         {buttonText}
       </Button>
     </form>
   );
-};
+}
 
 export default CommonForm;

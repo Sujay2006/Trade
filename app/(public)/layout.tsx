@@ -1,5 +1,6 @@
 "use client";
 
+import Footer from "@/components/public/footer";
 import Navbar from "@/components/public/navbar";
 
 
@@ -14,6 +15,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
       <Navbar />
       <div className="flex flex-col">{children}</div>
       {/* footer */}
+      <Footer/>
     </main>
   );
 }

@@ -73,51 +73,62 @@ export default function AddBlog() {
   /* =======================
      Save Blog
   ======================= */
+const saveBlog = async (): Promise<void> => {
+  if (!title.trim()) {
+    alert("Title missing");
+    return;
+  }
 
-  const saveBlog = async (): Promise<void> => {
-    if (!title.trim()) {
-      alert("Title missing");
-      return;
-    }
+  setSaving(true);
 
-    setSaving(true);
-
-    const formData = new FormData();
-    formData.append("title", title);
-
-    const cleanContent: CleanContentBlock[] = [];
-
-    content.forEach((block) => {
+  const cleanContent = await Promise.all(
+    content.map(async (block) => {
       if (block.type === "image" && block.value instanceof File) {
-        formData.append("images", block.value);
-        cleanContent.push({ type: "image" });
-      } else {
-        cleanContent.push({
-          type: block.type,
-          value: String(block.value ?? ""),
+        const reader = new FileReader();
+
+        const base64 = await new Promise<string>((resolve) => {
+          reader.onloadend = () => {
+            resolve(reader.result as string);
+          };
+          reader.readAsDataURL(block.value);
         });
+
+        return {
+          type: "image",
+          value: base64,
+        };
       }
-    });
 
-    formData.append("content", JSON.stringify(cleanContent));
+      return {
+        type: block.type,
+        value: String(block.value ?? ""),
+      };
+    })
+  );
 
-    const res = await fetch("/api/admin/blog/create", {
-      method: "POST",
-      body: formData,
-    });
+  const res = await fetch("/api/admin/blog/create", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({
+      title,
+      content: cleanContent,
+    }),
+  });
 
-    const data: { success: boolean; message?: string } = await res.json();
+  const data: { success: boolean; message?: string } =
+    await res.json();
 
-    setSaving(false);
+  setSaving(false);
 
-    if (data.success) {
-      alert("Blog saved successfully!");
-      router.push("/admin/blog");
-    } else {
-      alert("Error: " + data.message);
-    }
-  };
-
+  if (data.success) {
+    alert("Blog saved successfully!");
+    router.push("/admin/blog");
+  } else {
+    alert("Error: " + data.message);
+  }
+};
   return (
     <div className="max-w-5xl p-6 space-y-6 bg-white rounded-xl shadow">
       {/* Title */}

@@ -1,8 +1,8 @@
 import type { NextApiRequest, NextApiResponse } from "next";
 import { createRouter } from "next-connect";
-import { upload } from "@/lib/multer";
 import { connectDb } from "@/lib/connectDb";
 import Blog from "@/models/Blog";
+import cloudinary from "@/lib/cloudinary";
 
 /* =========================
    Types
@@ -12,40 +12,7 @@ type BlogBlock =
   | { type: "text"; value: string }
   | { type: "image"; value?: string };
 
-interface ExtendedRequest extends NextApiRequest {
-  files?: {
-    images?: Express.Multer.File[];
-  };
-}
-
-const router = createRouter<ExtendedRequest, NextApiResponse>();
-
-/* =========================
-   Multer Middleware
-========================= */
-
-router.use(async (req, res, next) => {
-  const multerMiddleware = upload.fields([
-   { name: "images", maxCount: 20 }
-  ]);
-
-  return new Promise((resolve, reject) => {
-    // ✅ Use explicit types instead of 'typeof' to avoid circular reference
-    // ✅ Cast through 'unknown' to avoid 'any'
-    const middlewareFn = (multerMiddleware as unknown) as (
-      request: ExtendedRequest,
-      response: NextApiResponse,
-      callback: (err?: Error | unknown) => void
-    ) => void;
-
-    middlewareFn(req, res, (err) => {
-      if (err) {
-        return reject(err);
-      }
-      resolve(next());
-    });
-  });
-});
+const router = createRouter<NextApiRequest, NextApiResponse>();
 
 /* =========================
    POST → Create Blog
@@ -55,39 +22,34 @@ router.post(async (req, res) => {
   try {
     await connectDb();
 
-    const { title, content: contentStr } = req.body;
-    const imageFiles = req.files?.images ?? [];
+    const { title, content } = req.body;
 
-    if (!title || !contentStr) {
+    if (!title || !content) {
       return res.status(400).json({
         success: false,
-        message: "Title or content string missing",
+        message: "Title or content missing",
       });
     }
 
-    // 1️⃣ Parse JSON string
-    const parsedContent: BlogBlock[] = JSON.parse(contentStr);
+    const parsedContent: BlogBlock[] = content;
 
-    // 2️⃣ Inject image paths
-    let imageIndex = 0;
-    const finalContent: BlogBlock[] = parsedContent.map((block) => {
-      if (block.type === "image") {
-        const file = imageFiles[imageIndex++];
+    const finalContent: BlogBlock[] = [];
 
-        if (!file) {
-          throw new Error("Image file missing for image block");
-        }
+    for (const block of parsedContent) {
+      if (block.type === "image" && block.value) {
+        const uploaded = await cloudinary.uploader.upload(block.value, {
+          folder: "blogs",
+        });
 
-        return {
+        finalContent.push({
           type: "image",
-          value: `/uploads/${file.filename}`,
-        };
+          value: uploaded.secure_url,
+        });
+      } else {
+        finalContent.push(block);
       }
+    }
 
-      return block;
-    });
-
-    // 3️⃣ Save to DB
     const blog = await Blog.create({
       title,
       content: finalContent,
@@ -97,6 +59,7 @@ router.post(async (req, res) => {
       success: true,
       blog,
     });
+
   } catch (error: unknown) {
     console.error("CREATE BLOG ERROR:", error);
 
@@ -115,9 +78,3 @@ router.post(async (req, res) => {
 ========================= */
 
 export default router.handler();
-
-export const config = {
-  api: {
-    bodyParser: false, // Required for Multer
-  },
-};

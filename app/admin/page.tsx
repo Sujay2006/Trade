@@ -47,20 +47,25 @@ export default function AdminHome() {
      Handlers
   ======================= */
 
-  const handleImageDrop = async (
-    e: React.DragEvent<HTMLDivElement>
-  ): Promise<void> => {
-    e.preventDefault();
-    const file = e.dataTransfer.files[0];
+const handleImageDrop = async (
+  e: React.DragEvent<HTMLDivElement>
+): Promise<void> => {
+  e.preventDefault();
 
-    if (!file || !file.type.startsWith("image/")) return;
+  const file = e.dataTransfer.files[0];
+  if (!file || !file.type.startsWith("image/")) return;
 
-    const formData = new FormData();
-    formData.append("banner", file);
+  const reader = new FileReader();
 
+  reader.onloadend = async () => {
     const res = await fetch("/api/admin/banner", {
       method: "POST",
-      body: formData,
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        banner: reader.result,
+      }),
     });
 
     const data: { success: boolean } = await res.json();
@@ -71,18 +76,26 @@ export default function AdminHome() {
     }
   };
 
-  const handleImageSelect = async (
-    e: React.ChangeEvent<HTMLInputElement>
-  ): Promise<void> => {
-    const file = e.target.files?.[0];
-    if (!file || !file.type.startsWith("image/")) return;
+  reader.readAsDataURL(file);
+};
 
-    const formData = new FormData();
-    formData.append("banner", file);
+const handleImageSelect = async (
+  e: React.ChangeEvent<HTMLInputElement>
+): Promise<void> => {
+  const file = e.target.files?.[0];
+  if (!file || !file.type.startsWith("image/")) return;
 
+  const reader = new FileReader();
+
+  reader.onloadend = async () => {
     const res = await fetch("/api/admin/banner", {
       method: "POST",
-      body: formData,
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        banner: reader.result,
+      }),
     });
 
     const data: { success: boolean } = await res.json();
@@ -90,10 +103,11 @@ export default function AdminHome() {
     if (data.success) {
       alert("Banner uploaded successfully");
       fetchBanner();
-    } else {
-      alert("Banner upload failed");
     }
   };
+
+  reader.readAsDataURL(file);
+};
 
   const removeImage = async (id: string): Promise<void> => {
     await fetch(`/api/admin/banner/${id}`, { method: "DELETE" });

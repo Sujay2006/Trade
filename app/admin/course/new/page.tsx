@@ -122,40 +122,35 @@ const NewCoursePage = () => {
   /* =======================
       Submission
      ======================= */
-  const handleSubmit = async () => {
-    try {
-      const formData = new FormData();
+const handleSubmit = async () => {
+  try {
+    let imageBase64 = "";
 
-      // Append standard fields
-      const fieldsToAppend: (keyof CourseForm)[] = [
-        "title", "description", "duration", "timing", "language", 
-        "price", "salePrice", "whatsAppLink", "telegramLink", "seat"
-      ];
+    if (form.image instanceof File) {
+      const reader = new FileReader();
 
-      fieldsToAppend.forEach((field) => {
-        formData.append(field, form[field] as string);
+      imageBase64 = await new Promise<string>((resolve) => {
+        reader.onloadend = () => {
+          resolve(reader.result as string);
+        };
+        reader.readAsDataURL(form.image);
       });
-
-      // Handle Files
-      if (form.image instanceof File) {
-        formData.append("image", form.image);
-      }
-      
-      // If banner is used for a string/date, append it
-      formData.append("banner", form.banner);
-
-      // Array -> String
-      formData.append("modules", JSON.stringify(form.modules));
-
-      const result = await dispatch(createCourse(formData)).unwrap();
-
-      if (result) {
-        router.push("/admin/course");
-      }
-    } catch (err) {
-      console.error("Submission error:", err);
     }
-  };
+
+    const data = {
+      ...form,
+      image: imageBase64 || form.image,
+    };
+
+    const result = await dispatch(createCourse(data)).unwrap();
+
+    if (result) {
+      router.push("/admin/course");
+    }
+  } catch (err) {
+    console.error("Submission error:", err);
+  }
+};
 
   return (
     <div className="w-full p-8 bg-white rounded-2xl shadow-lg space-y-8">

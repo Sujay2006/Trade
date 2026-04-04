@@ -4,12 +4,8 @@ import { useEffect, useState } from "react";
 import Image from "next/image";
 import { Button } from "@/components/ui/button";
 import { EditableField } from "@/components/common/EditableField";
-import { ChevronDown, ChevronUp } from "lucide-react";
+import { ChevronDown, ChevronUp, Loader2 } from "lucide-react";
 import { useParams, useRouter } from "next/navigation";
-
-/* =======================
-   Types
-======================= */
 
 type BlogBlockType = "text" | "image";
 
@@ -18,35 +14,9 @@ interface BlogBlock {
   value: string | File | null;
 }
 
-interface CleanContentBlock {
-  type: BlogBlockType;
-  value?: string;
-}
-
-interface BlockRendererProps {
-  block: BlogBlock;
-  index: number;
-  content: BlogBlock[];
-  setContent: React.Dispatch<React.SetStateAction<BlogBlock[]>>;
-  removeBlock: (i: number) => void;
-  moveBlock: (i: number, dir: "up" | "down") => void;
-}
-
-interface ImageDropZoneProps {
-  block: BlogBlock;
-  index: number;
-  content: BlogBlock[];
-  setContent: React.Dispatch<React.SetStateAction<BlogBlock[]>>;
-}
-
-/* =======================
-   Update Blog Page
-======================= */
-
 export default function UpdateBlog() {
   const params = useParams();
   const id = typeof params?.id === "string" ? params.id : "";
-
   const router = useRouter();
 
   const [title, setTitle] = useState<string>("");
@@ -54,140 +24,88 @@ export default function UpdateBlog() {
   const [loading, setLoading] = useState<boolean>(true);
   const [saving, setSaving] = useState<boolean>(false);
 
-  /* =======================
-     Fetch Blog
-  ======================= */
-
   useEffect(() => {
     if (!id) return;
-
-    const fetchBlog = async (): Promise<void> => {
+    const fetchBlog = async () => {
       try {
         const res = await fetch(`/api/admin/blog/${id}`);
         const data = await res.json();
         const blog = data.blog ?? data;
-
-        if (!blog?.title) throw new Error("Invalid blog data");
-
-        setTitle(blog.title);
-
+        setTitle(blog.title || "");
         setContent(
-          (blog.content || []).map((block: CleanContentBlock) => ({
-            type: block.type,
-            value:
-              block.type === "image"
-                ? block.value ?? null
-                : block.value ?? "",
+          (blog.content || []).map((b: any) => ({
+            type: b.type,
+            value: b.value ?? (b.type === "text" ? "" : null),
           }))
         );
-      } catch (error: unknown) {
-        console.error("Load blog failed:", error);
+      } catch (err) {
         alert("Failed to load blog");
       } finally {
         setLoading(false);
       }
     };
-
     fetchBlog();
   }, [id]);
 
-  /* =======================
-     Helpers
-  ======================= */
-
   const moveBlock = (index: number, direction: "up" | "down") => {
     const updated = [...content];
-
     if (direction === "up" && index > 0) {
-      [updated[index], updated[index - 1]] = [
-        updated[index - 1],
-        updated[index],
-      ];
+      [updated[index], updated[index - 1]] = [updated[index - 1], updated[index]];
+    } else if (direction === "down" && index < updated.length - 1) {
+      [updated[index], updated[index + 1]] = [updated[index + 1], updated[index]];
     }
-
-    if (direction === "down" && index < updated.length - 1) {
-      [updated[index], updated[index + 1]] = [
-        updated[index + 1],
-        updated[index],
-      ];
-    }
-
     setContent(updated);
   };
 
-  const removeBlock = (index: number) => {
-    setContent((prev) => prev.filter((_, i) => i !== index));
-  };
+  const toBase64 = (file: File): Promise<string> =>
+    new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.readAsDataURL(file);
+      reader.onload = () => resolve(reader.result as string);
+      reader.onerror = (error) => reject(error);
+    });
 
-  const addTextBlock = () => {
-    setContent((prev) => [...prev, { type: "text", value: "" }]);
-  };
-
-  const addImageBlock = () => {
-    setContent((prev) => [...prev, { type: "image", value: null }]);
-  };
-
-  /* =======================
-     Update Blog
-  ======================= */
-
-  const updateBlog = async (): Promise<void> => {
-    if (!title.trim() || !id) {
-      alert("Title or ID missing");
-      return;
-    }
-
+  const updateBlog = async () => {
+    if (!title.trim() || !id) return alert("Missing Title/ID");
     setSaving(true);
 
-    const formData = new FormData();
-    formData.append("title", title);
+    try {
+      // Convert all new Files to Base64 so we can send as JSON
+      const finalContent = await Promise.all(
+        content.map(async (block) => {
+          if (block.type === "image" && block.value instanceof File) {
+            const base64 = await toBase64(block.value);
+            return { type: "image", value: base64 };
+          }
+          return { type: block.type, value: block.value };
+        })
+      );
 
-    const cleanContent: CleanContentBlock[] = [];
+      const res = await fetch(`/api/admin/blog/${id}`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ title, content: finalContent }),
+      });
 
-    content.forEach((block) => {
-      if (block.type === "image" && block.value instanceof File) {
-        formData.append("images", block.value);
-        cleanContent.push({ type: "image" });
+      const data = await res.json();
+      if (data.success) {
+        alert("Blog updated!");
+        router.push("/admin/blog");
       } else {
-        cleanContent.push({
-          type: block.type,
-          value: String(block.value ?? ""),
-        });
+        throw new Error(data.message);
       }
-    });
-
-    formData.append("content", JSON.stringify(cleanContent));
-
-    const res = await fetch(`/api/admin/blog/${id}`, {
-      method: "PUT",
-      body: formData,
-    });
-
-    const data: { success: boolean; message?: string } = await res.json();
-    setSaving(false);
-
-    if (data.success) {
-      alert("Blog updated successfully!");
-      router.push("/admin/blog");
-    } else {
-      alert("Error: " + data.message);
+    } catch (error: any) {
+      alert("Error: " + error.message);
+    } finally {
+      setSaving(false);
     }
   };
 
-  if (loading) return <p className="p-10">Loading...</p>;
-
-  /* =======================
-     UI
-  ======================= */
+  if (loading) return <div className="p-10 flex items-center gap-2"><Loader2 className="animate-spin" /> Loading...</div>;
 
   return (
-    <div className="max-w-5xl p-6 space-y-6 bg-white rounded-xl shadow">
-      <EditableField
-        value={title}
-        onChange={setTitle}
-        placeholder="Edit Blog Title"
-        size="lg"
-      />
+    <div className="max-w-5xl mx-auto p-6 space-y-6 bg-white rounded-xl shadow mt-10">
+      <EditableField value={title} onChange={setTitle} placeholder="Blog Title" size="lg" />
 
       {content.map((block, index) => (
         <BlockRenderer
@@ -196,162 +114,81 @@ export default function UpdateBlog() {
           index={index}
           content={content}
           setContent={setContent}
-          removeBlock={removeBlock}
+          removeBlock={(i) => setContent(content.filter((_, idx) => idx !== i))}
           moveBlock={moveBlock}
         />
       ))}
 
       <div className="flex gap-4">
-        <Button onClick={addTextBlock}>+ Add Text</Button>
-        <Button onClick={addImageBlock}>+ Add Image</Button>
+        <Button onClick={() => setContent([...content, { type: "text", value: "" }])}>+ Text</Button>
+        <Button onClick={() => setContent([...content, { type: "image", value: null }])}>+ Image</Button>
       </div>
 
-      <Button
-        className="w-full mt-6"
-        onClick={updateBlog}
-        disabled={saving}
-      >
-        {saving ? "Updating..." : "Update Blog"}
+      <Button className="w-full" onClick={updateBlog} disabled={saving}>
+        {saving ? "Saving Changes..." : "Update Blog"}
       </Button>
     </div>
   );
 }
 
-/* =======================
-   Block Renderer
-======================= */
-
-function BlockRenderer({
-  block,
-  index,
-  content,
-  setContent,
-  removeBlock,
-  moveBlock,
-}: BlockRendererProps) {
+function BlockRenderer({ block, index, content, setContent, removeBlock, moveBlock }: any) {
   return (
-    <div className="relative flex group gap-3">
-      <div className="flex flex-col justify-between">
-        <Button
-          size="icon"
-          variant="ghost"
-          onClick={() => moveBlock(index, "up")}
-        >
-          <ChevronUp size={14} />
-        </Button>
-        <Button
-          size="icon"
-          variant="ghost"
-          onClick={() => moveBlock(index, "down")}
-        >
-          <ChevronDown size={14} />
-        </Button>
+    <div className="relative flex group gap-3 border p-4 rounded-lg">
+      <div className="flex flex-col">
+        <Button size="icon" variant="ghost" onClick={() => moveBlock(index, "up")}><ChevronUp size={16} /></Button>
+        <Button size="icon" variant="ghost" onClick={() => moveBlock(index, "down")}><ChevronDown size={16} /></Button>
       </div>
 
-      <button
-        onClick={() => removeBlock(index)}
-        className="absolute -top-2 -right-2 bg-red-500 text-white rounded-full w-6 h-6 text-xs hidden group-hover:flex"
-      >
-        ✕
-      </button>
+      <button onClick={() => removeBlock(index)} className="absolute -top-2 -right-2 bg-red-500 text-white rounded-full w-6 h-6 flex items-center justify-center text-xs opacity-0 group-hover:opacity-100 transition-opacity">✕</button>
 
       {block.type === "text" ? (
-        <EditableField
-          type="textarea"
-          value={String(block.value ?? "")}
-          placeholder="Edit text..."
-          onChange={(val) => {
+        <textarea
+          className="w-full p-2 border rounded resize-none focus:ring-2 focus:ring-blue-400 outline-none"
+          rows={3}
+          value={block.value}
+          onChange={(e) => {
             const updated = [...content];
-            updated[index].value = val;
+            updated[index].value = e.target.value;
             setContent(updated);
           }}
-          className="w-full"
+          placeholder="Start writing..."
         />
       ) : (
-        <ImageDropZone
-          block={block}
-          index={index}
-          content={content}
-          setContent={setContent}
-        />
+        <ImageDropZone block={block} index={index} content={content} setContent={setContent} />
       )}
     </div>
   );
 }
 
-/* =======================
-   Image Drop Zone
-======================= */
-
-function ImageDropZone({
-  block,
-  index,
-  content,
-  setContent,
-}: ImageDropZoneProps) {
-  const handleImage = (file: File | null) => {
-    if (!file) return;
-    const updated = [...content];
-    updated[index].value = file;
-    setContent(updated);
-  };
-
-  const removeImage = () => {
-    const updated = [...content];
-    updated[index].value = null;
-    setContent(updated);
-  };
-
-  const imageSrc =
-    block.value instanceof File
-      ? URL.createObjectURL(block.value)
-      : typeof block.value === "string"
-      ? block.value
-      : null;
+function ImageDropZone({ block, index, content, setContent }: any) {
+  const imageSrc = block.value instanceof File ? URL.createObjectURL(block.value) : block.value;
 
   return (
-    <div
-      className="relative border-2 border-dashed border-gray-300 rounded-lg p-6 text-center cursor-pointer hover:border-[#0096FF]"
-      onDragOver={(e) => e.preventDefault()}
-      onDrop={(e) => {
-        e.preventDefault();
-        handleImage(e.dataTransfer.files?.[0] ?? null);
-      }}
-      onClick={() => document.getElementById(`image-${index}`)?.click()}
+    <div 
+      className="w-full border-2 border-dashed rounded-lg p-4 text-center cursor-pointer hover:bg-gray-50"
+      onClick={() => document.getElementById(`file-${index}`)?.click()}
     >
       {imageSrc ? (
-        <Image
-          src={imageSrc}
-          alt="Blog image preview"
-          width={600}
-          height={400}
-          className="mx-auto max-h-[400px] object-contain rounded"
-        />
+        <div className="relative inline-block">
+          <img src={imageSrc} alt="Preview" className="max-h-60 rounded mx-auto" />
+          <p className="text-xs text-gray-400 mt-2">Click to change image</p>
+        </div>
       ) : (
-        <p className="text-gray-500">
-          Drag & drop image or{" "}
-          <span className="text-[#0096FF]">click to upload</span>
-        </p>
+        <p className="text-gray-400">Click or drag image here</p>
       )}
-
-      {imageSrc && (
-        <button
-          onClick={(e) => {
-            e.stopPropagation();
-            removeImage();
-          }}
-          className="absolute -top-2 -right-2 bg-red-500 text-white rounded-full w-6 h-6 text-xs"
-        >
-          ✕
-        </button>
-      )}
-
       <input
-        id={`image-${index}`}
+        id={`file-${index}`}
         type="file"
-        accept="image/*"
         hidden
-        onChange={(e) => handleImage(e.target.files?.[0] ?? null)}
+        accept="image/*"
+        onChange={(e) => {
+          const file = e.target.files?.[0];
+          if (file) {
+            const updated = [...content];
+            updated[index].value = file;
+            setContent(updated);
+          }
+        }}
       />
     </div>
   );

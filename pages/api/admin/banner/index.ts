@@ -1,75 +1,50 @@
 import type { NextApiRequest, NextApiResponse } from "next";
 import { createRouter } from "next-connect";
-import { upload } from "@/lib/multer";
 import { connectDb } from "@/lib/connectDb";
 import Banner from "@/models/Banner";
-
-/* =========================
-   Types
-========================= */
-
-interface ExtendedRequest extends NextApiRequest {
-  files?: {
-    banner?: Express.Multer.File[];
-  };
-}
+import cloudinary from "@/lib/cloudinary";
 
 /* =========================
    Router
 ========================= */
 
-const router = createRouter<ExtendedRequest, NextApiResponse>();
+const router = createRouter<NextApiRequest, NextApiResponse>();
 
 /* =========================
-   Multer Middleware
-========================= */
-
-router.use(async (req, res, next) => {
-  const multerMiddleware = upload.fields([
-    { name: "banner", maxCount: 1 },
-  ]);
-
-  return new Promise((resolve, reject) => {
-    // ✅ Use explicit types instead of 'typeof' to avoid circular reference
-    // ✅ Cast through 'unknown' to avoid 'any'
-    const middlewareFn = (multerMiddleware as unknown) as (
-      request: ExtendedRequest,
-      response: NextApiResponse,
-      callback: (err?: Error | unknown) => void
-    ) => void;
-
-    middlewareFn(req, res, (err) => {
-      if (err) {
-        return reject(err);
-      }
-      resolve(next());
-    });
-  });
-});
-
-/* =========================
-   POST → Create Banner
+   POST → Upload Banner
 ========================= */
 
 router.post(async (req, res) => {
   try {
     await connectDb();
 
-    const bannerFile = req.files?.banner?.[0];
+    const { banner } = req.body;
+
+    if (!banner) {
+      return res.status(400).json({
+        success: false,
+        message: "Banner image required",
+      });
+    }
+
+    const uploaded = await cloudinary.uploader.upload(banner, {
+      folder: "banners",
+    });
 
     const newBanner = await Banner.create({
-      banner: bannerFile ? `/uploads/${bannerFile.filename}` : "",
+      banner: uploaded.secure_url,
     });
 
     return res.status(201).json({
       success: true,
       banner: newBanner,
     });
+
   } catch (error: unknown) {
-    console.error("BANNER CREATE ERROR:", error);
+    console.error(error);
 
     const message =
-      error instanceof Error ? error.message : "Failed to create banner";
+      error instanceof Error ? error.message : "Upload failed";
 
     return res.status(500).json({
       success: false,
@@ -92,22 +67,13 @@ router.get(async (_req, res) => {
       success: true,
       banners,
     });
+
   } catch (error: unknown) {
     const message =
-      error instanceof Error ? error.message : "Failed to fetch banners";
+      error instanceof Error ? error.message : "Failed";
 
     return res.status(500).json({ message });
   }
 });
 
-/* =========================
-   Export
-========================= */
-
 export default router.handler();
-
-export const config = {
-  api: {
-    bodyParser: false, // Required for Multer
-  },
-};

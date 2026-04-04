@@ -6,6 +6,7 @@ export interface IUser extends Document {
   password: string;
   googleId?: string;
   profilePicture?: string;
+  phone?: string;
   role: "user" | "admin";
 }
 
@@ -13,6 +14,9 @@ const UserSchema = new Schema<IUser>({
   userName: { type: String, required: true, unique: true },
   email: { type: String, required: true, unique: true },
   password: { type: String, required: true },
+  phone: {
+  type: String,
+},
   googleId: String,
   profilePicture: String,
   role: { type: String, default: "user" }

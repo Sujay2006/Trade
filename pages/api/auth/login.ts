@@ -55,6 +55,7 @@ export default async function handler(
         id: user._id,
         email: user.email,
         userName: user.userName,
+        phone: user.phone,
         role: user.role,
       },
     });
