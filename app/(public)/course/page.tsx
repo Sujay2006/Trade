@@ -46,23 +46,38 @@ export default function CoursePage() {
     };
 
     switch (sort) {
-      case "starting-soon":
-        list.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
-        break;
-      case "date-over":
-        list.sort((a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime());
-        break;
-      case "price-low-high":
-        list.sort((a, b) => 
-          (getPrice(a.salePrice) || getPrice(a.price)) - (getPrice(b.salePrice) || getPrice(b.price))
-        );
-        break;
-      case "price-high-low":
-        list.sort((a, b) => 
-          (getPrice(b.salePrice) || getPrice(b.price)) - (getPrice(a.salePrice) || getPrice(a.price))
-        );
-        break;
-    }
+  case "starting-soon":
+    list.sort(
+      (a, b) =>
+        new Date(b.createdAt as string).getTime() -
+        new Date(a.createdAt as string).getTime()
+    );
+    break;
+
+  case "date-over":
+    list.sort(
+      (a, b) =>
+        new Date(a.createdAt as string).getTime() -
+        new Date(b.createdAt as string).getTime()
+    );
+    break;
+
+  case "price-low-high":
+    list.sort(
+      (a, b) =>
+        (getPrice(a.salePrice) || getPrice(a.price)) -
+        (getPrice(b.salePrice) || getPrice(b.price))
+    );
+    break;
+
+  case "price-high-low":
+    list.sort(
+      (a, b) =>
+        (getPrice(b.salePrice) || getPrice(b.price)) -
+        (getPrice(a.salePrice) || getPrice(a.price))
+    );
+    break;
+}
 
     return list;
   }, [courses, search, sort]);

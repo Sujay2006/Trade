@@ -2,7 +2,6 @@ import {
   createSlice, 
   createAsyncThunk, 
   PayloadAction, 
-  isAnyOf, 
   isPending, 
   isRejected 
 } from "@reduxjs/toolkit";
@@ -30,10 +29,11 @@ export interface Course {
   timing?: string;
   language?: string;
   seat?: string;
+    createdAt?: string; 
   whatsAppLink?: string;
   telegramLink?: string;
   modules: Module[];
-  [key: string]: any; 
+  [key: string]: unknown;
 }
 
 export interface CourseState {
@@ -49,27 +49,39 @@ export interface CourseState {
 
 export const createCourse = createAsyncThunk(
   "course/create",
-  async (data: FormData, { rejectWithValue }) => {
+  async (data: Record<string, unknown>, { rejectWithValue }) => {
     try {
       const res = await axios.post(API_URL, data);
       return res.data;
-    } catch (error: any) {
-      return rejectWithValue(error.response?.data?.message || "Failed to create course");
+    } catch (error: unknown) {
+      if (axios.isAxiosError(error)) {
+        return rejectWithValue(
+          error.response?.data?.message || "Failed to create course"
+        );
+      }
+      return rejectWithValue("An unexpected error occurred");
     }
   }
 );
 
 export const getCourses = createAsyncThunk(
-  "course/getCourses", 
+  "course/getCourses",
   async (_, { rejectWithValue }) => {
     try {
       const res = await axios.get(API_URL);
       const data = res.data;
+
       if (Array.isArray(data)) return data;
       if (Array.isArray(data?.courses)) return data.courses;
+
       return [] as Course[];
-    } catch (error: any) {
-      return rejectWithValue(error.response?.data?.message || "Failed to fetch courses");
+    } catch (error: unknown) {
+      if (axios.isAxiosError(error)) {
+        return rejectWithValue(
+          error.response?.data?.message || "Failed to fetch courses"
+        );
+      }
+      return rejectWithValue("An unexpected error occurred");
     }
   }
 );
@@ -80,20 +92,37 @@ export const getCourseById = createAsyncThunk(
     try {
       const res = await axios.get(`${API_URL}/${id}`);
       return res.data;
-    } catch (error: any) {
-      return rejectWithValue(error.response?.data?.message || "Failed to fetch course details");
+    } catch (error: unknown) {
+      if (axios.isAxiosError(error)) {
+        return rejectWithValue(
+          error.response?.data?.message || "Failed to fetch course details"
+        );
+      }
+      return rejectWithValue("An unexpected error occurred");
     }
   }
 );
 
+/* =======================
+   FIXED UPDATE COURSE
+======================= */
+
 export const updateCourse = createAsyncThunk(
   "course/update",
-  async ({ id, data }: { id: string; data: FormData }, { rejectWithValue }) => {
+  async (
+    { id, data }: { id: string; data: Record<string, unknown> },
+    { rejectWithValue }
+  ) => {
     try {
       const res = await axios.put(`${API_URL}/${id}`, data);
       return res.data;
-    } catch (error: any) {
-      return rejectWithValue(error.response?.data?.message || "Failed to update course");
+    } catch (error: unknown) {
+      if (axios.isAxiosError(error)) {
+        return rejectWithValue(
+          error.response?.data?.message || "Failed to update course"
+        );
+      }
+      return rejectWithValue("An unexpected error occurred");
     }
   }
 );
@@ -104,8 +133,13 @@ export const deleteCourse = createAsyncThunk(
     try {
       await axios.delete(`${API_URL}/${id}`);
       return id;
-    } catch (error: any) {
-      return rejectWithValue(error.response?.data?.message || "Failed to delete course");
+    } catch (error: unknown) {
+      if (axios.isAxiosError(error)) {
+        return rejectWithValue(
+          error.response?.data?.message || "Failed to delete course"
+        );
+      }
+      return rejectWithValue("An unexpected error occurred");
     }
   }
 );
@@ -125,7 +159,6 @@ const courseSlice = createSlice({
   name: "course",
   initialState,
   reducers: {
-    // Helpful for resetting the "current" course state when leaving a page
     clearCourse: (state) => {
       state.course = null;
       state.error = null;
@@ -133,52 +166,83 @@ const courseSlice = createSlice({
   },
   extraReducers: (builder) => {
     builder
-      // GET ALL
       .addCase(getCourses.fulfilled, (state, action: PayloadAction<Course[]>) => {
         state.loading = false;
         state.courses = action.payload;
       })
-      // GET BY ID
-      .addCase(getCourseById.fulfilled, (state, action: PayloadAction<Course>) => {
-        state.loading = false;
-        state.course = action.payload;
-      })
-      // CREATE
-      .addCase(createCourse.fulfilled, (state, action: PayloadAction<Course>) => {
-        state.loading = false;
-        if (action.payload) state.courses.push(action.payload);
-      })
-      // UPDATE
-      .addCase(updateCourse.fulfilled, (state, action: PayloadAction<Course>) => {
-        state.loading = false;
-        const index = state.courses.findIndex((c) => c._id === action.payload._id);
-        if (index !== -1) {
-          state.courses[index] = action.payload;
+
+      .addCase(
+        getCourseById.fulfilled,
+        (state, action: PayloadAction<Course>) => {
+          state.loading = false;
+          state.course = action.payload;
         }
-        state.course = action.payload;
-      })
-      // DELETE
-      .addCase(deleteCourse.fulfilled, (state, action: PayloadAction<string>) => {
-        state.loading = false;
-        state.courses = state.courses.filter((c) => c._id !== action.payload);
-      })
-      
-      /* =======================
-          Shared Matchers
-         ======================= */
+      )
+
+      .addCase(
+        createCourse.fulfilled,
+        (state, action: PayloadAction<Course>) => {
+          state.loading = false;
+          if (action.payload) state.courses.push(action.payload);
+        }
+      )
+
+      .addCase(
+        updateCourse.fulfilled,
+        (state, action: PayloadAction<Course>) => {
+          state.loading = false;
+
+          const index = state.courses.findIndex(
+            (c) => c._id === action.payload._id
+          );
+
+          if (index !== -1) {
+            state.courses[index] = action.payload;
+          }
+
+          state.course = action.payload;
+        }
+      )
+
+      .addCase(
+        deleteCourse.fulfilled,
+        (state, action: PayloadAction<string>) => {
+          state.loading = false;
+          state.courses = state.courses.filter(
+            (c) => c._id !== action.payload
+          );
+        }
+      )
+
+      /* Matchers */
       .addMatcher(
-        isPending(getCourses, getCourseById, createCourse, updateCourse, deleteCourse),
+        isPending(
+          getCourses,
+          getCourseById,
+          createCourse,
+          updateCourse,
+          deleteCourse
+        ),
         (state) => {
           state.loading = true;
           state.error = null;
         }
       )
+
       .addMatcher(
-        isRejected(getCourses, getCourseById, createCourse, updateCourse, deleteCourse),
+        isRejected(
+          getCourses,
+          getCourseById,
+          createCourse,
+          updateCourse,
+          deleteCourse
+        ),
         (state, action) => {
           state.loading = false;
-          // Use action.payload from rejectWithValue, or fallback to the generic error message
-          state.error = (action.payload as string) || action.error.message || "An unexpected error occurred";
+          state.error =
+            (action.payload as string) ||
+            action.error.message ||
+            "An unexpected error occurred";
         }
       );
   },

@@ -1,17 +1,36 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import Image from "next/image";
 import { Button } from "@/components/ui/button";
 import { EditableField } from "@/components/common/EditableField";
-import { ChevronDown, ChevronUp, Loader2 } from "lucide-react";
+import { ChevronDown, ChevronUp, Loader2, X } from "lucide-react";
 import { useParams, useRouter } from "next/navigation";
+
+/* =======================
+   Types & Interfaces
+======================= */
 
 type BlogBlockType = "text" | "image";
 
 interface BlogBlock {
   type: BlogBlockType;
   value: string | File | null;
+}
+
+interface BlockRendererProps {
+  block: BlogBlock;
+  index: number;
+  content: BlogBlock[];
+  setContent: (content: BlogBlock[]) => void;
+  removeBlock: (index: number) => void;
+  moveBlock: (index: number, direction: "up" | "down") => void;
+}
+
+interface ImageDropZoneProps {
+  block: BlogBlock;
+  index: number;
+  content: BlogBlock[];
+  setContent: (content: BlogBlock[]) => void;
 }
 
 export default function UpdateBlog() {
@@ -33,12 +52,13 @@ export default function UpdateBlog() {
         const blog = data.blog ?? data;
         setTitle(blog.title || "");
         setContent(
-          (blog.content || []).map((b: any) => ({
+          (blog.content || []).map((b: { type: BlogBlockType; value: string | null }) => ({
             type: b.type,
             value: b.value ?? (b.type === "text" ? "" : null),
           }))
         );
       } catch (err) {
+        console.error("Fetch error:", err);
         alert("Failed to load blog");
       } finally {
         setLoading(false);
@@ -70,7 +90,6 @@ export default function UpdateBlog() {
     setSaving(true);
 
     try {
-      // Convert all new Files to Base64 so we can send as JSON
       const finalContent = await Promise.all(
         content.map(async (block) => {
           if (block.type === "image" && block.value instanceof File) {
@@ -94,8 +113,9 @@ export default function UpdateBlog() {
       } else {
         throw new Error(data.message);
       }
-    } catch (error: any) {
-      alert("Error: " + error.message);
+    } catch (error: unknown) {
+      const msg = error instanceof Error ? error.message : "Unknown error";
+      alert("Error: " + msg);
     } finally {
       setSaving(false);
     }
@@ -114,7 +134,7 @@ export default function UpdateBlog() {
           index={index}
           content={content}
           setContent={setContent}
-          removeBlock={(i) => setContent(content.filter((_, idx) => idx !== i))}
+          removeBlock={(i: number) => setContent(content.filter((_, idx) => idx !== i))}
           moveBlock={moveBlock}
         />
       ))}
@@ -131,7 +151,7 @@ export default function UpdateBlog() {
   );
 }
 
-function BlockRenderer({ block, index, content, setContent, removeBlock, moveBlock }: any) {
+function BlockRenderer({ block, index, content, setContent, removeBlock, moveBlock }: BlockRendererProps) {
   return (
     <div className="relative flex group gap-3 border p-4 rounded-lg">
       <div className="flex flex-col">
@@ -139,16 +159,21 @@ function BlockRenderer({ block, index, content, setContent, removeBlock, moveBlo
         <Button size="icon" variant="ghost" onClick={() => moveBlock(index, "down")}><ChevronDown size={16} /></Button>
       </div>
 
-      <button onClick={() => removeBlock(index)} className="absolute -top-2 -right-2 bg-red-500 text-white rounded-full w-6 h-6 flex items-center justify-center text-xs opacity-0 group-hover:opacity-100 transition-opacity">✕</button>
+      <button 
+        onClick={() => removeBlock(index)} 
+        className="absolute -top-2 -right-2 bg-red-500 text-white rounded-full w-6 h-6 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity"
+      >
+        <X size={12} />
+      </button>
 
       {block.type === "text" ? (
         <textarea
           className="w-full p-2 border rounded resize-none focus:ring-2 focus:ring-blue-400 outline-none"
           rows={3}
-          value={block.value}
+          value={block.value as string}
           onChange={(e) => {
             const updated = [...content];
-            updated[index].value = e.target.value;
+            updated[index] = { ...updated[index], value: e.target.value };
             setContent(updated);
           }}
           placeholder="Start writing..."
@@ -160,8 +185,11 @@ function BlockRenderer({ block, index, content, setContent, removeBlock, moveBlo
   );
 }
 
-function ImageDropZone({ block, index, content, setContent }: any) {
-  const imageSrc = block.value instanceof File ? URL.createObjectURL(block.value) : block.value;
+function ImageDropZone({ block, index, content, setContent }: ImageDropZoneProps) {
+  // Safe handling of preview URL
+  const imageSrc = block.value instanceof File 
+    ? URL.createObjectURL(block.value) 
+    : (typeof block.value === 'string' ? block.value : '');
 
   return (
     <div 
@@ -170,6 +198,7 @@ function ImageDropZone({ block, index, content, setContent }: any) {
     >
       {imageSrc ? (
         <div className="relative inline-block">
+          {/* eslint-disable-next-line @next/next/no-img-element */}
           <img src={imageSrc} alt="Preview" className="max-h-60 rounded mx-auto" />
           <p className="text-xs text-gray-400 mt-2">Click to change image</p>
         </div>
@@ -185,7 +214,7 @@ function ImageDropZone({ block, index, content, setContent }: any) {
           const file = e.target.files?.[0];
           if (file) {
             const updated = [...content];
-            updated[index].value = file;
+            updated[index] = { ...updated[index], value: file };
             setContent(updated);
           }
         }}

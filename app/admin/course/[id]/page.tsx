@@ -1,8 +1,8 @@
 "use client";
 
-import React, { useEffect, useState, ChangeEvent, DragEvent } from "react";
+import React, { useEffect, useState, ChangeEvent } from "react";
 import { Button } from "@/components/ui/button";
-import { PlusCircle, Trash2, Users } from "lucide-react";
+import { PlusCircle, Trash2, Users, Loader2, X } from "lucide-react";
 import { useDispatch } from "react-redux";
 import { getCourseById, updateCourse } from "@/redux/slices/admin/courseSlice";
 import { Input } from "@/components/ui/input";
@@ -10,12 +10,34 @@ import { EditableField } from "@/components/common/EditableField";
 import { useRouter, useParams } from "next/navigation";
 import Image from "next/image";
 import type { AppDispatch } from "@/redux/store";
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
+
+/* =======================
+   Types & Interfaces
+======================= */
 
 interface Module {
   title: string;
   zoomLink: string;
   downloadLink: string;
+}
+
+interface StudentUser {
+  userName: string;
+  email: string;
+  phone?: string;
+}
+
+interface Student {
+  user: StudentUser;
+  status: string;
 }
 
 interface CourseForm {
@@ -32,8 +54,19 @@ interface CourseForm {
   whatsAppLink: string;
   telegramLink: string;
   modules: Module[];
-  students: any[];
+  students: Student[];
 }
+
+/* ✅ FIXED UpdatePayload */
+
+interface UpdatePayload extends Omit<CourseForm, "image"> {
+  image: string;
+  [key: string]: unknown;
+}
+
+/* =======================
+   Main Component
+======================= */
 
 const UpdateCoursePage = () => {
   const dispatch = useDispatch<AppDispatch>();
@@ -42,6 +75,8 @@ const UpdateCoursePage = () => {
   const id = typeof params?.id === "string" ? params.id : "";
 
   const [loading, setLoading] = useState<boolean>(true);
+  const [isUpdating, setIsUpdating] = useState<boolean>(false);
+
   const [form, setForm] = useState<CourseForm>({
     title: "",
     description: "",
@@ -61,20 +96,25 @@ const UpdateCoursePage = () => {
 
   useEffect(() => {
     if (!id) return;
+
     const fetchCourse = async () => {
       try {
         const res = await dispatch(getCourseById({ id })).unwrap();
+
         setForm({
           ...res,
-          modules: res.modules?.length ? res.modules : [{ title: "", zoomLink: "", downloadLink: "" }],
+          modules: res.modules?.length
+            ? res.modules
+            : [{ title: "", zoomLink: "", downloadLink: "" }],
           students: res.students ?? [],
         });
       } catch (err) {
-        console.error(err);
+        console.error("Fetch Error:", err);
       } finally {
         setLoading(false);
       }
     };
+
     fetchCourse();
   }, [id, dispatch]);
 
@@ -82,10 +122,18 @@ const UpdateCoursePage = () => {
     setForm((prev) => ({ ...prev, [field]: value }));
   };
 
-  const handleModuleChange = (index: number, field: keyof Module, value: string) => {
+  const handleModuleChange = (
+    index: number,
+    field: keyof Module,
+    value: string
+  ) => {
     setForm((prev) => {
       const updatedModules = [...prev.modules];
-      updatedModules[index] = { ...updatedModules[index], [field]: value };
+      updatedModules[index] = {
+        ...updatedModules[index],
+        [field]: value,
+      };
+
       return { ...prev, modules: updatedModules };
     });
   };
@@ -93,7 +141,10 @@ const UpdateCoursePage = () => {
   const addModule = () => {
     setForm((prev) => ({
       ...prev,
-      modules: [...prev.modules, { title: "", zoomLink: "", downloadLink: "" }],
+      modules: [
+        ...prev.modules,
+        { title: "", zoomLink: "", downloadLink: "" },
+      ],
     }));
   };
 
@@ -106,52 +157,103 @@ const UpdateCoursePage = () => {
 
   const handleImageSelect = (e: ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
+
     if (file && file.type.startsWith("image/")) {
-      setForm((prev) => ({ ...prev, image: file }));
+      setForm((prev) => ({
+        ...prev,
+        image: file,
+      }));
     }
   };
 
   const handleSubmit = async () => {
+    if (!id) return;
+
+    setIsUpdating(true);
+
     try {
-      let imageBase64 = typeof form.image === "string" ? form.image : "";
+      let imageBase64: string = "";
+
       if (form.image instanceof File) {
         const reader = new FileReader();
-        imageBase64 = await new Promise((resolve) => {
-          reader.onloadend = () => resolve(reader.result as string);
+
+        imageBase64 = await new Promise<string>((resolve, reject) => {
+          reader.onloadend = () =>
+            resolve(reader.result as string);
+          reader.onerror = reject;
           reader.readAsDataURL(form.image as File);
         });
+      } else {
+        imageBase64 = form.image;
       }
-      const data = { ...form, image: imageBase64 || form.image };
-      await dispatch(updateCourse({ id, data })).unwrap();
+
+      const payload: UpdatePayload = {
+        ...form,
+        image: imageBase64,
+      };
+
+      await dispatch(
+        updateCourse({
+          id,
+          data: payload,
+        })
+      ).unwrap();
+
+      alert("Course updated successfully!");
       router.push("/admin/course");
     } catch (err) {
-      console.error(err);
+      console.error("Submit Error:", err);
+      alert("Update failed. Check console for details.");
+    } finally {
+      setIsUpdating(false);
     }
   };
 
-  if (loading) return <div className="p-10 text-center">Loading...</div>;
+  if (loading)
+    return (
+      <div className="p-20 flex flex-col items-center justify-center gap-4">
+        <Loader2
+          className="animate-spin text-[#0096FF]"
+          size={40}
+        />
+        <p className="text-gray-400">
+          Loading course details...
+        </p>
+      </div>
+    );
 
   return (
     <div className="w-full p-8 bg-white rounded-2xl shadow-lg space-y-8">
-      {/* Header - EXACT SAME AS NEW PAGE */}
-      <div className="flex sm:flex-row flex-col justify-between items-center gap-10">
-        <Button onClick={handleSubmit} className="bg-[#0096FF] sm:hidden text-white w-full px-6 py-2 rounded-xl">
-          Update Course
-        </Button>
+
+      {/* Header */}
+
+      <div className="flex sm:flex-row flex-col justify-between items-center gap-6">
         <EditableField
           value={form.title}
-          onChange={(val) => handleFieldChange("title", val)}
+          onChange={(val) =>
+            handleFieldChange("title", val)
+          }
           placeholder="Add Course Title"
           size="lg"
           className="w-full"
         />
-        <Button onClick={handleSubmit} className="bg-[#0096FF] hidden sm:flex text-white px-6 py-2 rounded-xl">
-          Update Course
+
+        <Button
+          onClick={handleSubmit}
+          disabled={isUpdating}
+          className="bg-[#0096FF] hover:bg-blue-600 text-white px-8 py-6 rounded-xl font-bold w-full sm:w-auto"
+        >
+          {isUpdating ? (
+            <Loader2 className="animate-spin mr-2" />
+          ) : (
+            "Update Course"
+          )}
         </Button>
       </div>
 
-      <div className="sm:flex justify-between gap-10">
-        <div className="w-full flex flex-col justify-between space-y-5">
+
+      <div className="flex flex-col lg:flex-row justify-between gap-10">
+        <div className="w-full flex flex-col space-y-6">
           <EditableField
             type="textarea"
             value={form.description}
@@ -159,137 +261,109 @@ const UpdateCoursePage = () => {
             placeholder="Add course description"
           />
 
-          <div className="flex items-center gap-2">
-            <p className="w-fit text-2xl font-medium">₹</p>
-            <EditableField
-              value={form.price}
-              onChange={(val) => handleFieldChange("price", val)}
-              placeholder="Price"
-              className="w-fit text-2xl font-medium"
-            />
-            <EditableField
-              value={form.salePrice}
-              onChange={(val) => handleFieldChange("salePrice", val)}
-              placeholder="Sale Price"
-              className="w-fit text-2xl font-medium line-through"
-            />
-          </div>
-
-          <div className="flex justify-between items-center gap-5">
-            <div>
+          <div className="flex items-center gap-4">
+            <div className="flex items-center gap-1 bg-gray-50 p-2 rounded-lg border">
+              <span className="text-2xl font-bold text-gray-400">₹</span>
               <EditableField
-                value={form.whatsAppLink}
-                onChange={(val) => handleFieldChange("whatsAppLink", val)}
-                placeholder="WhatsApp Link"
-                className="w-fit text-xl font-medium"
-              />
-              <EditableField
-                value={form.telegramLink}
-                onChange={(val) => handleFieldChange("telegramLink", val)}
-                placeholder="Telegram Link"
-                className="w-fit text-xl font-medium"
+                value={form.price}
+                onChange={(val) => handleFieldChange("price", val)}
+                placeholder="Price"
+                className="w-24 text-2xl font-bold"
               />
             </div>
-            <EditableField
-              value={form.seat}
-              onChange={(val) => handleFieldChange("seat", val)}
-              placeholder="Seat"
-              className="w-fit text-xl font-medium"
-            />
+            <div className="flex items-center gap-1 bg-gray-50 p-2 rounded-lg border">
+              <span className="text-2xl font-bold text-gray-400 line-through">₹</span>
+              <EditableField
+                value={form.salePrice}
+                onChange={(val) => handleFieldChange("salePrice", val)}
+                placeholder="Sale"
+                className="w-24 text-2xl font-bold line-through text-gray-300"
+              />
+            </div>
           </div>
         </div>
 
-        {/* Image Upload Area - EXACT SAME AS NEW PAGE */}
+        {/* Image Upload Area */}
         <div
-          className="border-2 mt-5 sm:mt-0 border-dashed border-gray-300 rounded-lg p-6 text-center cursor-pointer hover:border-[#0096FF] transition"
+          className="lg:w-1/3 border-2 border-dashed border-gray-200 rounded-2xl p-4 text-center cursor-pointer hover:border-[#0096FF] transition bg-gray-50 flex flex-col items-center justify-center min-h-[250px]"
           onClick={() => document.getElementById("imageInput")?.click()}
         >
           {form.image ? (
-            <div className="relative inline-block">
+            <div className="relative w-full">
               <Image
                 src={typeof form.image === "string" ? form.image : URL.createObjectURL(form.image)}
-                alt="Preview" width={300} height={160} className="mx-auto h-40 object-contain rounded"
+                alt="Course Preview" 
+                width={400} 
+                height={225}
+                unoptimized
+                className="mx-auto max-h-52 object-cover rounded-xl shadow-md"
               />
               <button
                 type="button"
                 onClick={(e) => { e.stopPropagation(); setForm({ ...form, image: "" }); }}
-                className="absolute -top-2 -right-2 bg-red-500 text-white rounded-full w-6 h-6 flex items-center justify-center text-sm"
-              >✕</button>
+                className="absolute -top-3 -right-3 bg-red-500 text-white rounded-full w-8 h-8 flex items-center justify-center shadow-lg"
+              >
+                <X size={16} />
+              </button>
             </div>
           ) : (
-            <p className="text-gray-500 p-10">
-              Drag & drop image here or <span className="text-[#0096FF]">click to upload</span>
-            </p>
+            <div className="space-y-2">
+              <PlusCircle className="mx-auto text-gray-300" size={40} />
+              <p className="text-gray-400 text-sm">Click to upload banner</p>
+            </div>
           )}
           <input type="file" id="imageInput" accept="image/*" className="hidden" onChange={handleImageSelect} />
         </div>
       </div>
 
-      {/* Info Grid - EXACT SAME AS NEW PAGE */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-6 border shadow-xl rounded-xl p-5">
-        <EditableField
-          value={form.banner}
-          onChange={(val) => handleFieldChange("banner", val)}
-          placeholder="Start Date"
-          className="text-center text-2xl font-medium"
-          label="Start Date"
-        />
-        <EditableField
-          value={form.duration}
-          onChange={(val) => handleFieldChange("duration", val)}
-          placeholder="Duration"
-          className="text-center text-2xl font-medium"
-          label="Duration"
-        />
-        <EditableField
-          value={form.timing}
-          onChange={(val) => handleFieldChange("timing", val)}
-          placeholder="Class Timing"
-          className="text-center text-2xl font-medium"
-          label="Class Timing"
-        />
-        <EditableField
-          value={form.language}
-          onChange={(val) => handleFieldChange("language", val)}
-          placeholder="Language"
-          className="text-center text-2xl font-medium"
-          label="Language"
-        />
-      </div>
-
-      {/* Modules */}
-      <div className="space-y-3">
-        <div className="flex justify-between items-center">
-          <h2 className="text-xl font-semibold">Curriculum</h2>
-          <Button onClick={addModule} variant="outline" size="sm" className="flex gap-1 items-center">
-            <PlusCircle size={16} /> Add Module
-          </Button>
-        </div>
-        {form.modules.map((mod, i) => (
-          <div key={i} className="p-4 border rounded-xl flex flex-col sm:flex-row gap-3 items-center w-full">
-            <Input placeholder="Module Title" value={mod.title} onChange={(e) => handleModuleChange(i, "title", e.target.value)} />
-            <Input placeholder="Zoom Link" value={mod.zoomLink} onChange={(e) => handleModuleChange(i, "zoomLink", e.target.value)} />
-            <Input placeholder="Download Link" value={mod.downloadLink} onChange={(e) => handleModuleChange(i, "downloadLink", e.target.value)} />
-            {form.modules.length > 1 && (
-              <Trash2 onClick={() => removeModule(i)} className="cursor-pointer text-red-500" />
-            )}
+      {/* Info Grid */}
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+        {["banner", "duration", "timing", "language"].map((field) => (
+          <div key={field} className="bg-white border rounded-xl p-4 shadow-sm">
+            <p className="text-[10px] uppercase text-gray-400 font-black mb-1">{field === 'banner' ? 'Start Date' : field}</p>
+            <EditableField
+              value={form[field as keyof CourseForm] as string}
+              onChange={(val) => handleFieldChange(field as keyof CourseForm, val)}
+              placeholder="..."
+              className="text-lg font-semibold"
+            />
           </div>
         ))}
       </div>
 
-      {/* Enrolled Students Table - Added section */}
-      <div className="space-y-4 pt-8 border-t">
-        <div className="flex items-center gap-2">
-          <Users className="text-[#0096FF]" size={22} />
-          <h2 className="text-xl font-semibold">Enrolled Students ({form.students.length})</h2>
+      {/* Modules */}
+      <div className="space-y-4 pt-6">
+        <div className="flex justify-between items-center">
+          <h2 className="text-2xl font-bold">Curriculum</h2>
+          <Button onClick={addModule} variant="outline" className="border-[#0096FF] text-[#0096FF]">
+            <PlusCircle size={18} className="mr-2" /> Add Module
+          </Button>
         </div>
-        <div className="border rounded-xl overflow-hidden">
+        <div className="grid gap-4">
+          {form.modules.map((mod, i) => (
+            <div key={i} className="p-5 border rounded-2xl bg-gray-50 flex flex-col md:flex-row gap-4 items-end">
+              <div className="flex-1 w-full"><Input className="bg-white" placeholder="Title" value={mod.title} onChange={(e) => handleModuleChange(i, "title", e.target.value)} /></div>
+              <div className="flex-1 w-full"><Input className="bg-white" placeholder="Zoom" value={mod.zoomLink} onChange={(e) => handleModuleChange(i, "zoomLink", e.target.value)} /></div>
+              <div className="flex-1 w-full"><Input className="bg-white" placeholder="Drive" value={mod.downloadLink} onChange={(e) => handleModuleChange(i, "downloadLink", e.target.value)} /></div>
+              {form.modules.length > 1 && (
+                <Button variant="ghost" onClick={() => removeModule(i)} className="text-red-500 hover:bg-red-50"><Trash2 size={20} /></Button>
+              )}
+            </div>
+          ))}
+        </div>
+      </div>
+
+      {/* Students Table */}
+      <div className="space-y-4 pt-10 border-t">
+        <h2 className="text-2xl font-bold flex items-center gap-2">
+          <Users className="text-[#0096FF]" size={24} /> Enrolled Students ({form.students.length})
+        </h2>
+        <div className="border rounded-2xl overflow-hidden shadow-sm">
           <Table>
             <TableHeader className="bg-gray-50">
               <TableRow>
                 <TableHead>Name</TableHead>
                 <TableHead>Email</TableHead>
-                <TableHead>Phone</TableHead>
                 <TableHead>Status</TableHead>
               </TableRow>
             </TableHeader>
@@ -297,17 +371,16 @@ const UpdateCoursePage = () => {
               {form.students.map((s, idx) => (
                 <TableRow key={idx}>
                   <TableCell className="font-medium">{s.user?.userName || "N/A"}</TableCell>
-                  <TableCell>{s.user?.email || "N/A"}</TableCell>
-                  <TableCell>{s.user?.phone || "N/A"}</TableCell>
+                  <TableCell className="text-gray-500">{s.user?.email || "N/A"}</TableCell>
                   <TableCell>
-                    <span className="px-2 py-1 rounded-full bg-green-100 text-green-700 text-xs font-bold uppercase">
+                    <span className="px-3 py-1 rounded-full bg-green-100 text-green-700 text-[10px] font-bold uppercase">
                       {s.status}
                     </span>
                   </TableCell>
                 </TableRow>
               ))}
               {form.students.length === 0 && (
-                <TableRow><TableCell colSpan={4} className="text-center py-6 text-gray-400">No students enrolled.</TableCell></TableRow>
+                <TableRow><TableCell colSpan={3} className="text-center py-10 text-gray-400 italic">No students enrolled yet.</TableCell></TableRow>
               )}
             </TableBody>
           </Table>

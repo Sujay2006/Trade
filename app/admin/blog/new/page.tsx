@@ -18,11 +18,6 @@ interface BlogBlock {
   value: string | File | null;
 }
 
-interface CleanContentBlock {
-  type: BlogBlockType;
-  value?: string;
-}
-
 interface BlockRendererProps {
   block: BlogBlock;
   index: number;
@@ -83,14 +78,17 @@ const saveBlog = async (): Promise<void> => {
 
   const cleanContent = await Promise.all(
     content.map(async (block) => {
+      // 1. Check if it's an image AND the value is actually a File
       if (block.type === "image" && block.value instanceof File) {
+        const file = block.value; // Assign to a local variable to satisfy TS
         const reader = new FileReader();
 
-        const base64 = await new Promise<string>((resolve) => {
+        const base64 = await new Promise<string>((resolve, reject) => {
           reader.onloadend = () => {
             resolve(reader.result as string);
           };
-          reader.readAsDataURL(block.value);
+          reader.onerror = reject;
+          reader.readAsDataURL(file); // Use the 'file' variable here
         });
 
         return {
@@ -99,9 +97,10 @@ const saveBlog = async (): Promise<void> => {
         };
       }
 
+      // 2. Handle text blocks or images that didn't have a file selected
       return {
         type: block.type,
-        value: String(block.value ?? ""),
+        value: typeof block.value === "string" ? block.value : "",
       };
     })
   );

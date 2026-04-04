@@ -69,8 +69,8 @@ const HomeCourse = () => {
                 title={course.title}
                 description={course.description}
                 image={course.image}
-                price={course.price}
-                salePrice={course.salePrice}
+                price={typeof course.price === "string" ? parseFloat(course.price) : course.price}
+                salePrice={typeof course.salePrice === "string" ? parseFloat(course.salePrice) : course.salePrice}
                 duration={course.duration}
                 language={course.language}
               />

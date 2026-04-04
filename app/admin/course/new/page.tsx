@@ -133,7 +133,7 @@ const handleSubmit = async () => {
         reader.onloadend = () => {
           resolve(reader.result as string);
         };
-        reader.readAsDataURL(form.image);
+        reader.readAsDataURL(form.image as File);
       });
     }
 
