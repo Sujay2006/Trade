@@ -68,15 +68,15 @@ export const logOutUser = createAsyncThunk("auth/logout", async () => {
   return response.data;
 });
 
-export const checkAuth = createAsyncThunk("auth/checkAuth", async () => {
-  const response = await axios.get(`/api/auth/check-auth`, {
-    withCredentials: true,
-    headers: {
-      "Cache-Control": "no-store",
-    },
-  });
-  return response.data;
-});
+// export const checkAuth = createAsyncThunk("auth/checkAuth", async () => {
+//   const response = await axios.get(`/api/auth/check-auth`, {
+//     withCredentials: true,
+//     headers: {
+//       "Cache-Control": "no-store",
+//     },
+//   });
+//   return response.data;
+// });
 
 /* =========================
     Slice
@@ -115,20 +115,20 @@ const authSlice = createSlice({
         state.isAuthenticated = !!success;
       })
       // CHECK AUTH
-      .addCase(checkAuth.pending, (state) => {
-        state.isLoading = true;
-      })
-      .addCase(checkAuth.fulfilled, (state, action) => {
-        state.isLoading = false;
-        const success = action.payload?.success;
-        state.user = success ? (action.payload.user as UserData) : null;
-        state.isAuthenticated = !!success;
-      })
-      .addCase(checkAuth.rejected, (state) => {
-        state.isLoading = false;
-        state.user = null;
-        state.isAuthenticated = false;
-      })
+      // .addCase(checkAuth.pending, (state) => {
+      //   state.isLoading = true;
+      // })
+      // .addCase(checkAuth.fulfilled, (state, action) => {
+      //   state.isLoading = false;
+      //   const success = action.payload?.success;
+      //   state.user = success ? (action.payload.user as UserData) : null;
+      //   state.isAuthenticated = !!success;
+      // })
+      // .addCase(checkAuth.rejected, (state) => {
+      //   state.isLoading = false;
+      //   state.user = null;
+      //   state.isAuthenticated = false;
+      // })
       // LOGOUT
       .addCase(logOutUser.fulfilled, (state) => {
         state.user = null;
