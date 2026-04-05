@@ -1,4 +1,8 @@
 "use client";
+import { useEffect } from "react";
+import { useDispatch } from "react-redux";
+import { AppDispatch } from "@/redux/store";
+import { getCourses } from "@/redux/slices/admin/courseSlice";
 
 import { useSelector } from "react-redux";
 import { RootState } from "@/redux/store";
@@ -7,6 +11,8 @@ import Image from "next/image";
 import { Mail, Phone, User as UserIcon } from "lucide-react";
 
 export default function ProfilePage() {
+  const dispatch = useDispatch<AppDispatch>();
+
   const { user, isAuthenticated } = useSelector((state: RootState) => state.auth);
   const { courses } = useSelector((state: RootState) => state.course);
 
@@ -14,9 +20,13 @@ export default function ProfilePage() {
   const myEnrolledCourses = courses.filter((course: any) =>
     course.students?.some((s: any) => (s.user?._id || s.user) === user?.id)
   );
+    useEffect(() => {
+    dispatch(getCourses());
+  }, [dispatch]);
 
   if (!isAuthenticated) return <div className="p-20 text-center">Please login to view profile.</div>;
 
+  
   return (
     <section className="max-w-6xl mx-auto px-4 py-12 min-h-screen">
       {/* Profile Header */}
