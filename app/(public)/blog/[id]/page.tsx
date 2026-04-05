@@ -25,7 +25,7 @@ interface Blog {
 
 async function getBlog(id: string): Promise<Blog> {
   const res = await fetch(
-    `${process.env.NEXT_PUBLIC_API_URL}/api/public/blog/${id}`,
+    `/api/public/blog/${id}`,
     { cache: "no-store" } // ensures views++
   );
 

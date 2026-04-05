@@ -28,7 +28,7 @@ export default function LatestBlogsCarousel() {
   const [blogs, setBlogs] = useState<Blog[]>([]);
 
   useEffect(() => {
-    fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/public/blog/get`)
+    fetch(`/api/public/blog/get`)
       .then((res) => res.json())
       .then((data) => setBlogs(data.slice(0, 6))); // Increased to 6 for better carousel feel
   }, []);
